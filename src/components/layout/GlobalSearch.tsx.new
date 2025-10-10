@@ -1,0 +1,345 @@
+"use client";
+
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Input } from '@/components/ui/input';
+import { supabase } from '@/lib/supabaseClient';
+import { useRouter } from 'next/navigation';
+import { Search, Package, Tag, Store } from 'lucide-react';
+import { Spinner } from '@/components/ui/spinner';
+import Image from 'next/image';
+import { Button } from '../ui/button';
+
+interface Suggestion {
+  id: string;
+  type: 'product' | 'category' | 'vendor';
+  name: string;
+  image?: string;
+  secondaryText?: string;
+  isPopular?: boolean;
+}
+
+const getProductImageSrc = (imageString?: string) => {
+  if (!imageString) return "/placeholder-product.png";
+  return imageString.split('" data-ai-hint="')[0];
+};
+
+export function GlobalSearch() {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [popularSearches, setPopularSearches] = useState<Suggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [showPopular, setShowPopular] = useState(true);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
+  const searchCache = useRef<Record<string, Suggestion[]>>({});
+
+  // Fetch popular searches on component mount
+  useEffect(() => {
+    const fetchPopularSearches = async () => {
+      try {
+        const [products, categories] = await Promise.all([
+          supabase
+            .from('products')
+            .select('id, name, images, vendors(store_name)')
+            .order('views', { ascending: false })
+            .limit(3),
+          supabase
+            .from('categories')
+            .select('id, name')
+            .order('name')
+            .limit(2)
+        ]);
+
+        const popular: Suggestion[] = [
+          ...(products.data || []).map((p: any) => ({
+            id: p.id,
+            type: 'product',
+            name: p.name,
+            image: getProductImageSrc(p.images?.[0]),
+            secondaryText: `in ${p.vendors?.store_name || 'General'}`,
+            isPopular: true
+          })),
+          ...(categories.data || []).map((c: any) => ({
+            id: c.id,
+            type: 'category',
+            name: c.name,
+            isPopular: true
+          }))
+        ];
+        
+        setPopularSearches(popular);
+      } catch (error) {
+        console.error("Error fetching popular searches:", error);
+      }
+    };
+
+    fetchPopularSearches();
+  }, []);
+
+  const fetchSuggestions = useCallback(async (term: string) => {
+    const trimmedTerm = term.trim();
+    
+    // Check cache first
+    if (searchCache.current[trimmedTerm]) {
+      setSuggestions(searchCache.current[trimmedTerm]);
+      setShowSuggestions(true);
+      return;
+    }
+
+    // Don't search for very short terms
+    if (trimmedTerm.length < 2) {
+      setSuggestions([]);
+      setShowPopular(true);
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const [productsResult, categoriesResult, vendorsResult] = await Promise.all([
+        supabase
+          .from('products')
+          .select('id, name, images, vendors(store_name)')
+          .ilike('name', `%${trimmedTerm}%`)
+          .limit(4),
+        supabase
+          .from('categories')
+          .select('id, name')
+          .ilike('name', `%${trimmedTerm}%`)
+          .limit(3),
+        supabase
+          .from('vendors')
+          .select('id, store_name')
+          .ilike('store_name', `%${trimmedTerm}%`)
+          .limit(3)
+      ]);
+
+      const productSuggestions: Suggestion[] = (productsResult.data || []).map((p: any) => ({
+        id: p.id,
+        type: 'product',
+        name: p.name,
+        image: getProductImageSrc(p.images?.[0]),
+        secondaryText: `in ${p.vendors?.store_name || 'General'}`
+      }));
+
+      const categorySuggestions: Suggestion[] = (categoriesResult.data || []).map((c: any) => ({
+        id: c.id,
+        type: 'category',
+        name: c.name
+      }));
+
+      const vendorSuggestions: Suggestion[] = (vendorsResult.data || []).map((v: any) => ({
+        id: v.id,
+        type: 'vendor',
+        name: v.store_name,
+        secondaryText: 'Store'
+      }));
+
+      const newSuggestions = [...productSuggestions, ...categorySuggestions, ...vendorSuggestions];
+      
+      // Cache the results
+      searchCache.current[trimmedTerm] = newSuggestions;
+      
+      setSuggestions(newSuggestions);
+      setShowSuggestions(true);
+      setShowPopular(false);
+    } catch (error) {
+      console.error("Error fetching suggestions:", error);
+      setSuggestions([]);
+      setShowSuggestions(false);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Debounce the search input
+  useEffect(() => {
+    const debounceTimer = setTimeout(() => {
+      const trimmedTerm = searchTerm.trim();
+      if (trimmedTerm) {
+        fetchSuggestions(trimmedTerm);
+      } else {
+        setSuggestions([]);
+        setShowPopular(true);
+      }
+    }, 300);
+    
+    return () => clearTimeout(debounceTimer);
+  }, [searchTerm, fetchSuggestions]);
+  
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false);
+        setShowPopular(false);
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleSuggestionClick = (suggestion: Suggestion) => {
+    setShowSuggestions(false);
+    setSearchTerm('');
+    if (suggestion.type === 'product') {
+      router.push(`/products/${suggestion.id}`);
+    } else if (suggestion.type === 'category') {
+      router.push(`/products/category/${suggestion.id}`);
+    } else if (suggestion.type === 'vendor') {
+      router.push(`/vendors/${suggestion.id}`);
+    }
+  };
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmedTerm = searchTerm.trim();
+    if (trimmedTerm) {
+      setShowSuggestions(false);
+      router.push(`/search?q=${encodeURIComponent(trimmedTerm)}`);
+      setSearchTerm('');
+    }
+  };
+
+  const getIconForType = (type: Suggestion['type']) => {
+    switch(type) {
+      case 'product': return <Package className="h-4 w-4 text-foreground" />;
+      case 'category': return <Tag className="h-4 w-4 text-foreground" />;
+      case 'vendor': return <Store className="h-4 w-4 text-foreground" />;
+      default: return null;
+    }
+  };
+
+  const handleInputFocus = () => {
+    if (!searchTerm.trim() && popularSearches.length > 0) {
+      setShowPopular(true);
+    } else if (searchTerm.trim()) {
+      setShowSuggestions(true);
+    }
+  };
+
+  return (
+    <div className="relative w-full max-w-2xl mx-auto" ref={searchContainerRef}>
+      <form onSubmit={handleSearchSubmit} className="relative flex items-center">
+        <Input
+          placeholder="Search for products, brands and categories"
+          className="h-10 pr-12 rounded-full border-2 border-primary/20 focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:border-primary/50 transition-all duration-200 text-foreground"
+          value={searchTerm}
+          onChange={(e) => {
+            setSearchTerm(e.target.value);
+            if (e.target.value.trim() === '') {
+              setShowPopular(true);
+            }
+          }}
+          onFocus={handleInputFocus}
+          aria-label="Search products and categories"
+        />
+        <div className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-10 flex items-center justify-center">
+          {isLoading ? (
+            <Spinner size="sm" className="text-muted-foreground" />
+          ) : (
+            <Button 
+              type="submit" 
+              variant="ghost" 
+              size="icon" 
+              className="h-8 w-8 hover:bg-transparent" 
+              aria-label="Search"
+            >
+              <Search className="h-5 w-5 text-muted-foreground" />
+            </Button>
+          )}
+        </div>
+      </form>
+      
+      {(showSuggestions || showPopular) && (
+        <div className="absolute top-full mt-1 w-full bg-background border border-border rounded-lg shadow-xl z-50 max-h-[32rem] overflow-y-auto">
+          {showPopular && popularSearches.length > 0 && (
+            <div className="p-2">
+              <h3 className="text-sm font-medium text-muted-foreground px-2 py-1">Popular Searches</h3>
+              <ul>
+                {popularSearches.map((suggestion) => (
+                  <li
+                    key={`popular-${suggestion.type}-${suggestion.id}`}
+                    onClick={() => handleSuggestionClick(suggestion)}
+                    className="flex items-center gap-3 p-2 hover:bg-accent cursor-pointer rounded-md"
+                  >
+                    {suggestion.type === 'product' && suggestion.image ? (
+                      <Image 
+                        src={suggestion.image} 
+                        alt={suggestion.name} 
+                        width={40} 
+                        height={40} 
+                        className="rounded-md object-cover h-10 w-10 flex-shrink-0"
+                      />
+                    ) : (
+                      <div className="h-10 w-10 rounded-md bg-muted flex items-center justify-center">
+                        {getIconForType(suggestion.type)}
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{suggestion.name}</p>
+                      {suggestion.secondaryText && (
+                        <p className="text-xs text-muted-foreground truncate">{suggestion.secondaryText}</p>
+                      )}
+                    </div>
+                    {suggestion.isPopular && (
+                      <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                        Popular
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          
+          {showSuggestions && suggestions.length > 0 && (
+            <ul className="divide-y divide-muted-foreground">
+              {suggestions.map((suggestion) => (
+                <li
+                  key={`${suggestion.type}-${suggestion.id}`}
+                  onClick={() => handleSuggestionClick(suggestion)}
+                  className="flex items-center gap-3 p-2 hover:bg-accent cursor-pointer"
+                >
+                  {suggestion.type === 'product' && suggestion.image ? (
+                    <Image 
+                      src={suggestion.image} 
+                      alt={suggestion.name} 
+                      width={40} 
+                      height={40} 
+                      className="rounded-md object-cover h-10 w-10 flex-shrink-0"
+                    />
+                  ) : (
+                    <div className="h-10 w-10 rounded-md bg-muted flex items-center justify-center">
+                      {getIconForType(suggestion.type)}
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{suggestion.name}</p>
+                    {suggestion.secondaryText && (
+                      <p className="text-xs text-muted-foreground truncate">{suggestion.secondaryText}</p>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+          
+          {isLoading && suggestions.length === 0 && !showPopular && (
+            <div className="p-4 flex justify-center">
+              <Spinner size="md" />
+            </div>
+          )}
+          
+          {!isLoading && suggestions.length === 0 && searchTerm.trim() && !showPopular && (
+            <div className="p-4 text-center text-muted-foreground">
+              No results found for "{searchTerm}"
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
