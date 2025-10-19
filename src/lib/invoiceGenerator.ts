@@ -2,18 +2,16 @@
 'use client';
 
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import { autoTable } from 'jspdf-autotable';
 import type { Order, User, Vendor } from './types';
 import { format } from 'date-fns';
 import { supabase } from './supabaseClient';
 
-// Import autoTable plugin properly
-import { autoTable } from 'jspdf-autotable';
-
-// Extend jsPDF interface for autoTable
+// Extend jsPDF interface for additional methods
 declare module 'jspdf' {
   interface jsPDF {
-    autoTable: (options: any) => jsPDF;
+    getNumberOfPages(): number;
+    lastAutoTable?: { finalY: number };
   }
 }
 
@@ -163,31 +161,27 @@ export const generateInvoicePdf = async (order: Order, currentUser: User) => {
         const tableStartY = currentY + 70;
 
         try {
-          // Try to use autoTable first
-          if (typeof doc.autoTable === 'function') {
-            doc.autoTable({
-              startY: tableStartY,
-              head: [tableColumn],
-              body: tableRows,
-              theme: 'striped',
-              headStyles: { fillColor: [25, 121, 99] },
-              styles: { font: 'helvetica', fontSize: 8, cellPadding: 2 },
-              columnStyles: {
-                0: { cellWidth: 65 },
-              },
-              didDrawPage: (data: any) => {
-                const pageCount = doc.getNumberOfPages();
-                doc.setFontSize(7);
-                doc.setFont('helvetica', 'italic');
-                doc.text(`Page ${data.pageNumber} of ${pageCount}`, data.settings.margin.left, doc.internal.pageSize.height - 8);
-              },
-            });
+          // Use autoTable directly
+          autoTable(doc, {
+            startY: tableStartY,
+            head: [tableColumn],
+            body: tableRows,
+            theme: 'striped',
+            headStyles: { fillColor: [25, 121, 99] },
+            styles: { font: 'helvetica', fontSize: 8, cellPadding: 2 },
+            columnStyles: {
+              0: { cellWidth: 65 },
+            },
+            didDrawPage: (data: any) => {
+              const pageCount = doc.getNumberOfPages();
+              doc.setFontSize(7);
+              doc.setFont('helvetica', 'italic');
+              doc.text(`Page ${data.pageNumber} of ${pageCount}`, data.settings.margin.left, doc.internal.pageSize.height - 8);
+            },
+          });
 
-            const finalY = (doc as any).autoTable?.previous?.finalY || tableStartY + 50;
-            return finalY + 25;
-          } else {
-            throw new Error('autoTable not available');
-          }
+          const finalY = (doc as any).lastAutoTable?.finalY || tableStartY + 50;
+          return finalY + 25;
         } catch (autoTableError) {
           console.warn('autoTable failed, using fallback table generation:', autoTableError);
 
