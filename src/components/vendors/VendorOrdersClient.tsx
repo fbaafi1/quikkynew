@@ -69,11 +69,10 @@ export default function VendorOrdersClient({ initialOrders }: { initialOrders: A
   const [notificationCount, setNotificationCount] = useState(0);
   const { toast } = useToast();
 
-  // Calculate notification count (Pending + Processing orders)
+  // Fetch orders when component mounts (since we're no longer doing server-side fetching)
   useEffect(() => {
-    const count = allOrders.filter(order => order.status === 'Pending' || order.status === 'Processing').length;
-    setNotificationCount(count);
-  }, [allOrders]);
+    refreshOrders();
+  }, []); // Empty dependency array means this runs once on mount
 
   // Function to refresh orders data
   const refreshOrders = async () => {
