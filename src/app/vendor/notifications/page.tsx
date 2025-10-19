@@ -1,18 +1,19 @@
+'use client';
 
-"use client";
-
-import { Bell, AlertTriangle, Package, ShoppingCart, MessageSquare, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Bell, AlertTriangle, Package, ShoppingCart, MessageSquare, ChevronLeft, ChevronRight, Check, Star } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useNotifications, Notification } from '@/contexts/NotificationContext';
+import { useNotifications, Notification, MarkAsReadResponse } from '@/contexts/NotificationContext';
 import { formatDistanceToNow } from 'date-fns';
 import { Spinner } from '@/components/ui/spinner';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import { toast } from 'sonner';
+
 
 const ITEMS_PER_PAGE = 10;
 
-const getNotificationIcon = (type: Notification['type']) => {
+const getNotificationIcon = (type: Notification['type']): JSX.Element => {
     switch (type) {
         case 'subscription':
             return <AlertTriangle className="h-5 w-5 text-destructive" />;
@@ -22,14 +23,56 @@ const getNotificationIcon = (type: Notification['type']) => {
             return <ShoppingCart className="h-5 w-5 text-green-600" />;
         case 'admin':
             return <MessageSquare className="h-5 w-5 text-blue-600" />;
+        case 'boost':
+            return <Star className="h-5 w-5 text-purple-600" />;
         default:
             return <Bell className="h-5 w-5 text-muted-foreground" />;
     }
 };
 
 export default function VendorNotificationsPage() {
-    const { notifications, isLoadingNotifications } = useNotifications();
+    const { 
+        notifications, 
+        isLoading, 
+        markNotificationAsRead,
+        notificationCount 
+    } = useNotifications();
+    
     const [currentPage, setCurrentPage] = useState(1);
+    const [markingAsRead, setMarkingAsRead] = useState<string | null>(null);
+
+    const handleMarkAsRead = async (notificationId: string) => {
+        if (!notificationId) {
+            toast.error('No notification ID provided');
+            return;
+        }
+
+        try {
+            setMarkingAsRead(notificationId);
+            
+            const result = await markNotificationAsRead(notificationId);
+            
+            if (result?.isSystemNotification) {
+                toast.success('Notification dismissed');
+            } else {
+                toast.success('Marked as read');
+            }
+            
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Failed to update notification';
+            
+            // Only show error toast for non-system notifications
+            if (!notificationId.startsWith('sub_') && 
+                !notificationId.startsWith('system_') &&
+                !notificationId.startsWith('expiry_') &&
+                !notificationId.startsWith('warning_') &&
+                !notificationId.startsWith('info_')) {
+                toast.error('Failed to mark notification as read');
+            }
+        } finally {
+            setMarkingAsRead(null);
+        }
+    };
 
     const totalPages = Math.ceil(notifications.length / ITEMS_PER_PAGE);
     const paginatedNotifications = notifications.slice(
@@ -37,7 +80,7 @@ export default function VendorNotificationsPage() {
         currentPage * ITEMS_PER_PAGE
     );
 
-    if (isLoadingNotifications) {
+    if (isLoading) {
         return (
             <div className="flex justify-center items-center min-h-[calc(100vh-10rem)]">
                 <Spinner className="h-12 w-12 text-primary" />
@@ -49,22 +92,30 @@ export default function VendorNotificationsPage() {
   const renderNotificationMessage = (notification: Notification) => {
     if (notification.type === 'inventory' && notification.id.startsWith('low_stock_')) {
       const productId = notification.id.replace('low_stock_', '');
-      const messageParts = notification.message.match(/"(.*?)"/);
+      // For inventory notifications, the message might contain product names in quotes
+      const message = notification.message || '';
+      const messageParts = message.match(/".*?"/);
+      
       if (messageParts && messageParts.length > 1) {
-        const productName = messageParts[1];
-        const restOfMessage = notification.message.substring(notification.message.indexOf(`" is`) + 1);
+        const productName = messageParts[0].replace(/"/g, '');
+        const restOfMessage = message.substring(message.indexOf(`" is`) + 1);
         return (
-            <p className="text-sm text-muted-foreground">
-                Your product{' '}
-                <Link href={`/vendor/products/${productId}/edit`} className="font-semibold text-foreground hover:underline">
-                    "{productName}"
-                </Link>
-                {restOfMessage}
-            </p>
+          <p className="text-sm text-muted-foreground">
+            Your product{' '}
+            <Link 
+              href={`/vendor/products/${productId}/edit`} 
+              className="font-semibold text-foreground hover:underline"
+            >
+              {productName}
+            </Link>
+            {restOfMessage}
+          </p>
         );
       }
     }
-    return <p className="text-sm text-muted-foreground">{notification.message}</p>;
+    
+    // For all other notification types, just display the message
+    return <p className="text-sm text-muted-foreground">{notification.message || 'No message content'}</p>;
   };
 
   return (
@@ -93,6 +144,8 @@ export default function VendorNotificationsPage() {
                                     ? 'hsl(var(--chart-4))'
                                     : notification.type === 'admin'
                                     ? 'hsl(var(--chart-1))'
+                                    : notification.type === 'boost'
+                                    ? 'hsl(262, 83%, 58%)' // Purple color for boost notifications
                                     : 'hsl(var(--chart-2))',
                               }}
                             >
@@ -103,9 +156,27 @@ export default function VendorNotificationsPage() {
                                   {renderNotificationMessage(notification)}
                                 </div>
                               </div>
-                              <p className="text-xs text-muted-foreground shrink-0 w-full sm:w-auto text-right sm:text-left whitespace-nowrap">
-                                {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
-                              </p>
+                              <div className="flex flex-col items-end gap-2 shrink-0 w-full sm:w-auto">
+                                <p className="text-xs text-muted-foreground whitespace-nowrap">
+                                  {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
+                                </p>
+                                {!notification.isRead && (
+                                  <button
+                                    onClick={() => handleMarkAsRead(notification.id)}
+                                    disabled={markingAsRead === notification.id}
+                                    className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1 disabled:opacity-50"
+                                  >
+                                    {markingAsRead === notification.id ? (
+                                      <span>Marking...</span>
+                                    ) : (
+                                      <>
+                                        <Check className="h-3 w-3" />
+                                        <span>Mark as Read</span>
+                                      </>
+                                    )}
+                                  </button>
+                                )}
+                              </div>
                             </div>
                         ))}
                     </div>

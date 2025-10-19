@@ -138,6 +138,11 @@ export default async function ProductDetailsPage({ params }: { params: PageParam
       category_id: undefined
     } as unknown as Product;
 
+    // Check vendor subscription status
+    const vendor = product.vendors;
+    const subscriptionEndDate = vendor?.subscription_end_date ? new Date(vendor.subscription_end_date) : null;
+    const isVendorSubscriptionActive = !(subscriptionEndDate && subscriptionEndDate < new Date());
+
     // Transform related products with proper typing
     const transformedRelatedProducts = ((relatedProducts as any[]) || []).filter(Boolean).map((p) => ({
       id: p.id,
@@ -167,7 +172,8 @@ export default async function ProductDetailsPage({ params }: { params: PageParam
           product={product} 
           flashSale={flashSaleData} 
           relatedProducts={transformedRelatedProducts}
-          reviews={reviews || []}
+          reviews={(reviews || []).map(review => ({ ...review, source: 'online' as const }))}
+          isVendorSubscriptionActive={isVendorSubscriptionActive}
         />
       </main>
     );

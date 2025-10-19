@@ -10,6 +10,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import FlashSaleCard from '@/components/products/FlashSaleCard';
 import Link from 'next/link';
+import AdvertisementCarousel from '@/components/AdvertisementCarousel';
+import type { Tables } from '@/lib/types_db';
 
 // Helper function to shuffle an array
 const shuffleArray = <T extends any[]>(array: T): T => {
@@ -21,15 +23,17 @@ const shuffleArray = <T extends any[]>(array: T): T => {
   return newArray as T;
 };
 
-// Data fetching function for the server component
-async function getHomePageData() {
+// Data fetching function for the server component with pagination support
+async function getHomePageData(offset: number = 0, limit: number = 20) {
     const now = new Date().toISOString();
 
     const [categoriesResult, productsResult, adsResult, flashSalesResult] = await Promise.all([
-      supabase.from('categories').select('*').eq('is_visible', true).order('name', { ascending: true }),
-      // Let's fetch a limited random set for "Just for You" later
-      supabase.from('products').select('id, name, description, price, images, category_id, stock, average_rating, review_count, vendor_id, is_boosted, boosted_until, vendors (id, store_name)'),
-      supabase.from('advertisements').select('id, title, media_url, media_type, link_url, start_date, end_date').eq('is_active', true).limit(5),
+      // Only fetch essential category data for visible categories
+      supabase.from('categories').select('id, name, is_visible').eq('is_visible', true).order('name', { ascending: true }),
+      // Load fewer products initially for better performance
+      supabase.from('products').select('id, name, price, images, category_id, average_rating, review_count, stock, vendor_id').range(offset, offset + limit - 1).order('created_at', { ascending: false }),
+      // Limit advertisements for faster loading
+      supabase.from('advertisements').select('id, title, media_url, media_type, link_url, start_date, end_date, is_active').eq('is_active', true).limit(3),
       supabase.from('flash_sales').select('*, products:product_id(*)').eq('is_active', true).lte('start_date', now).gte('end_date', now)
     ]);
 
@@ -37,30 +41,48 @@ async function getHomePageData() {
     const filteredAdvertisements = (adsResult.data || []).filter(ad => {
       // If no start_date column exists, show all active ads
       if (!ad.start_date) return true;
-      
+
       const startDate = new Date(ad.start_date);
       const endDate = ad.end_date ? new Date(ad.end_date) : null;
       const nowDate = new Date(now);
-      
+
       // Check if ad should be shown based on date range
       const isAfterStart = startDate <= nowDate;
       const isBeforeEnd = !endDate || endDate >= nowDate;
-      
+
       return isAfterStart && isBeforeEnd;
     });
 
     return {
-      categories: categoriesResult.data || [],
-      products: (productsResult.data as any[])?.map(p => ({ ...p })) || [],
+      categories: (categoriesResult.data as Tables<'categories'>[]) || [],
+      products: (productsResult.data as Tables<'products'>[])?.map(p => ({
+        id: p.id,
+        name: p.name,
+        price: p.price,
+        images: p.images,
+        categoryId: p.category_id || null,
+        average_rating: p.average_rating,
+        review_count: p.review_count,
+        is_boosted: p.is_boosted,
+        boosted_until: p.boosted_until,
+        boost_status: p.boost_status,
+        description: '', // Add default since it's not selected in query
+        stock: p.stock || 0, // Use actual stock from database
+        vendor_id: p.vendor_id,
+        created_at: p.created_at,
+        updated_at: p.updated_at
+      })) || [],
       advertisements: filteredAdvertisements,
-      flashSales: (flashSalesResult.data as any[]) || []
+      flashSales: (flashSalesResult.data as Tables<'flash_sales'>[]) || [],
+      hasMore: productsResult.data && productsResult.data.length === limit, // Check if there are more products
+      nextOffset: offset + limit
     };
 }
 
 
 export default async function HomePage() {
-  // Fetch data on the server
-  const { categories, products, advertisements, flashSales } = await getHomePageData();
+  // Fetch data on the server with initial pagination
+  const { categories, products, advertisements, flashSales, hasMore } = await getHomePageData(0, 20);
 
   const allDbVisibleCategories = categories;
   
@@ -69,43 +91,72 @@ export default async function HomePage() {
   const boostedProducts = products.filter(isProductBoosted);
 
   const boostedProductIds = new Set(boostedProducts.map(p => p.id));
-  const flashSaleProductIds = new Set(flashSales.map(fs => fs.product_id));
+  const flashSaleProductIds = new Set((flashSales as Tables<'flash_sales'>[]).map((fs: Tables<'flash_sales'>) => fs.product_id));
 
   let justForYouProducts = products.filter(product => {
-      if (boostedProductIds.has(product.id) || flashSaleProductIds.has(product.id)) return false;
-      if (product.categoryId && !allDbVisibleCategories.some(cat => cat.id === product.categoryId && cat.is_visible)) return false;
-      return true;
+      // Exclude boosted and flash sale products (they go to Featured/Flash Sales sections)
+      if (boostedProductIds.has(product.id) || flashSaleProductIds.has(product.id)) {
+          return false;
+      }
+
+      // If categories table is empty, include all products
+      if (allDbVisibleCategories.length === 0) {
+          return true;
+      }
+
+      // For products with categories, only exclude if category exists but is invisible
+      if (product.categoryId) {
+          const category = allDbVisibleCategories.find(cat => cat.id === product.categoryId);
+          if (category && !category.is_visible) {
+              return false; // Only exclude if category exists AND is invisible
+          }
+      }
+      // Include products with no category or categories that don't exist in our fetched list
+
+      return true; // Include the product
     });
 
-  justForYouProducts = shuffleArray(justForYouProducts).slice(0, 18); // Limit to 18 random products
+  justForYouProducts = shuffleArray(justForYouProducts).slice(0, 12); // Show only 12 products max
 
   return (
     <div className="space-y-12 bg-background">
       
       {advertisements.length > 0 && (
-        <section className="relative w-full max-w-4xl mx-auto px-4 overflow-hidden rounded-lg shadow-lg bg-muted aspect-video md:aspect-[2.4/1]">
-           <NextImage 
-              src={advertisements[0].media_url || `https://placehold.co/1280x720.png?text=${encodeURIComponent(advertisements[0].title)}`}
-              alt={advertisements[0].title} 
-              fill 
-              sizes="(max-width: 768px) 100vw, (max-width: 1024px) 80vw, 60vw" 
-              className="object-cover" 
-              data-ai-hint="advertisement banner"
-              priority
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent flex items-end p-6">
-                 <div>
-                    <h3 className="font-semibold text-white text-xl drop-shadow-md">{advertisements[0].title}</h3>
-                </div>
-            </div>
-        </section>
+        <AdvertisementCarousel advertisements={advertisements} />
       )}
 
       {flashSales.length > 0 && (
         <section className="space-y-4 pt-4 container mx-auto">
           <h2 className="text-2xl font-bold text-primary">Flash Sales</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-            {flashSales.map(sale => sale.products ? <FlashSaleCard key={sale.id} sale={sale} /> : null)}
+            {flashSales.map(sale => {
+              // Transform the database product to match our Product type
+              const dbProduct = (sale as any).products;
+              if (!dbProduct) return null;
+
+              const product: Product = {
+                id: dbProduct.id,
+                name: dbProduct.name,
+                price: dbProduct.price,
+                images: dbProduct.images,
+                categoryId: dbProduct.category_id || null,
+                average_rating: dbProduct.average_rating,
+                review_count: dbProduct.review_count,
+                is_boosted: dbProduct.is_boosted,
+                boosted_until: dbProduct.boosted_until,
+                boost_status: dbProduct.boost_status,
+                description: dbProduct.description || '',
+                stock: dbProduct.stock || 0,
+                vendor_id: dbProduct.vendor_id
+              };
+
+              const saleWithProduct: FlashSale = {
+                ...sale,
+                products: product
+              };
+
+              return <FlashSaleCard key={sale.id} sale={saleWithProduct} />;
+            })}
           </div>
         </section>
       )}
@@ -122,7 +173,14 @@ export default async function HomePage() {
 
       {justForYouProducts.length > 0 && (
         <section className="container mx-auto">
-          <h2 className="text-2xl font-bold mb-4">Just For You</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-2xl font-bold">Just For You</h2>
+            {hasMore && (
+              <Button variant="outline" asChild>
+                <Link href="/products">Browse All Products</Link>
+              </Button>
+            )}
+          </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
             {justForYouProducts.map(product => (
               <ProductCard key={product.id} product={product} />

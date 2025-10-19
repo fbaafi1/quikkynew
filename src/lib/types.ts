@@ -15,25 +15,31 @@ export interface Review {
   user_name?: string;
   rating: number; // 1-5
   comment: string | null;
+  source: 'online' | 'offline'; // Added source field
   created_at: string;
   updated_at: string;
 }
 
 export interface Vendor {
-    id: string;
-    user_id: string;
-    store_name: string;
-    contact_number?: string | null;
-    description?: string | null;
-    is_verified: boolean;
-    subscription_start_date?: string | null;
-    subscription_end_date?: string | null;
-    created_at?: string;
-    updated_at?: string;
-    user?: {
-      email: string;
-      name: string;
-    } | null;
+  id: string;
+  user_id: string;
+  store_name: string;
+  store_description?: string | null;
+  contact_number?: string | null;
+  address?: string;
+  city?: string;
+  region?: string;
+  country?: string;
+  postal_code?: string;
+  business_registration_number?: string;
+  tax_id?: string;
+  is_verified: boolean;
+  created_at: string;
+  updated_at: string;
+  user?: {
+    email: string;
+    name: string;
+  } | null;
 }
 
 export interface Product {
@@ -51,6 +57,7 @@ export interface Product {
   is_boosted?: boolean;
   boosted_until?: string | null;
   boost_status?: 'none' | 'requested' | 'active' | 'expired';
+  link_url?: string | null; // Added for optional product links
   categories?: Category | null;
   vendors?: Vendor | null;
 }
@@ -147,6 +154,13 @@ export interface AdminOrderSummary {
   totalAmount: number;
   status: OrderStatus;
   item_count: number;
+  products?: Array<{
+    id: string;
+    name: string;
+    image?: string;
+    quantity: number;
+    price: number;
+  }>;
 }
 
 export interface Advertisement {
@@ -196,6 +210,8 @@ export interface BoostPlan {
   duration_days: number;
   price: number;
   is_active: boolean;
+  start_date?: string | null;
+  end_date?: string | null;
   created_at?: string;
 }
 
@@ -204,12 +220,34 @@ export interface FlashSale {
   product_id: string;
   discount_type: 'percentage' | 'fixed_amount';
   discount_value: number;
-  start_date: string; // ISO String
-  end_date: string; // ISO String
+  start_date: string;
+  end_date: string;
   is_active: boolean;
   stock_cap: number | null;
   sales_count: number;
   created_at: string;
   updated_at: string;
-  products?: Product | null; // For joined data
+  products?: Product | null;
+}
+
+export interface Vendor {
+  id: string;
+  user_id: string;
+  store_name: string;
+  store_description?: string | null;
+  contact_number?: string | null;
+  address?: string;
+  city?: string;
+  region?: string;
+  country?: string;
+  postal_code?: string;
+  business_registration_number?: string;
+  tax_id?: string;
+  is_verified: boolean;
+  created_at: string;
+  updated_at: string;
+  user?: {
+    email: string;
+    name: string;
+  } | null;
 }

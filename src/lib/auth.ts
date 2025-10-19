@@ -14,39 +14,48 @@ export async function getUserId() {
 
 // This function is for use in Server Components to protect routes
 export async function verifyUserRole(requiredRole: UserRole, redirectPath: string) {
-    const cookieStore = cookies();
-    const supabase = createServerComponentClient({ cookies: () => cookieStore });
-    const { data: { session } } = await supabase.auth.getSession();
+    try {
+        const cookieStore = cookies();
+        const supabase = createServerComponentClient({ cookies: () => cookieStore });
+        
+        // Get the session
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
-    if (!session) {
-        redirect(`/auth/login?redirect=${redirectPath}`);
-    }
-
-    const { data: profile, error } = await supabase
-        .from('user_profiles')
-        .select('role')
-        .eq('id', session.user.id)
-        .single();
-    
-    if (error || !profile) {
-        console.error("Error fetching user profile or profile not found, redirecting to login.", error);
-        // Signing out here helps clear a potentially corrupted session state
-        await supabase.auth.signOut();
-        redirect(`/auth/login?error=profile_fetch_failed&redirect=${redirectPath}`);
-    }
-
-    if (profile.role !== requiredRole) {
-        // If the user is not the required role, redirect them to their own dashboard
-        switch (profile.role) {
-            case 'admin':
-                redirect('/admin');
-                break;
-            case 'vendor':
-                redirect('/vendor/dashboard');
-                break;
-            default:
-                redirect('/');
-                break;
+        // If no session, redirect to login
+        if (!session || !session.user?.email) {
+            return redirect(`/auth/login?redirect=${encodeURIComponent(redirectPath)}`);
         }
+
+        // Get user profile
+        const { data: profile, error: profileError } = await supabase
+            .from('user_profiles')
+            .select('role, email')
+            .eq('email', session.user.email)
+            .single();
+        
+        // If profile not found or error, sign out and redirect to login
+        if (profileError || !profile) {
+            console.error("User profile not found or error:", profileError);
+            await supabase.auth.signOut();
+            return redirect(`/auth/login?error=profile_not_found&redirect=${encodeURIComponent(redirectPath)}`);
+        }
+
+        // If user doesn't have the required role, redirect to appropriate dashboard
+        if (profile.role !== requiredRole) {
+            const redirectTo = profile.role === 'admin' 
+                ? '/admin' 
+                : profile.role === 'vendor' 
+                    ? '/vendor/dashboard' 
+                    : '/';
+            return redirect(redirectTo);
+        }
+
+        // If we get here, the user has the required role
+        return { session, profile };
+
+    } catch (error) {
+        console.error("Error in verifyUserRole:", error);
+        // In case of any error, redirect to login
+        return redirect(`/auth/login?error=auth_error&redirect=${encodeURIComponent(redirectPath)}`);
     }
 }

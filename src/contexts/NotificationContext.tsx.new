@@ -1,0 +1,209 @@
+"use client";
+
+import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback, useMemo } from 'react';
+import { supabase } from '@/lib/supabaseClient';
+import { useUser } from './UserContext';
+import { differenceInDays } from 'date-fns';
+import { usePathname } from 'next/navigation';
+
+type NotificationType = 'subscription' | 'inventory' | 'order' | 'admin';
+
+export interface Notification {
+  id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  createdAt: string;
+  isRead: boolean;
+  readAt?: string | null;
+}
+
+export interface MarkAsReadResponse {
+  success: boolean;
+  isSystemNotification?: boolean;
+  notificationId?: string;
+}
+
+interface NotificationContextType {
+  notifications: Notification[];
+  notificationCount: number;
+  isLoading: boolean;
+  fetchNotifications: () => Promise<void>;
+  markNotificationAsRead: (id: string) => Promise<MarkAsReadResponse>;
+}
+
+const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
+
+export const NotificationProvider = ({ children }: { children: ReactNode }) => {
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const { currentUser } = useUser();
+  const pathname = usePathname();
+  
+  const READ_NOTIFICATIONS_KEY = 'quikky_read_notifications';
+
+  // Get read notification IDs from localStorage
+  const getReadNotificationIds = useCallback((): Set<string> => {
+    if (typeof window === 'undefined') return new Set();
+    try {
+      const read = localStorage.getItem(READ_NOTIFICATIONS_KEY);
+      return new Set(read ? JSON.parse(read) : []);
+    } catch (error) {
+      console.error('Error reading from localStorage:', error);
+      return new Set();
+    }
+  }, []);
+
+  // Mark a notification as read in localStorage
+  const markNotificationAsReadInStorage = useCallback((id: string): void => {
+    if (typeof window === 'undefined') return;
+    try {
+      const readIds = getReadNotificationIds();
+      readIds.add(id);
+      localStorage.setItem(READ_NOTIFICATIONS_KEY, JSON.stringify(Array.from(readIds)));
+    } catch (error) {
+      console.error('Error writing to localStorage:', error);
+    }
+  }, [getReadNotificationIds]);
+
+  const fetchNotifications = useCallback(async () => {
+    if (!currentUser?.id) return;
+    
+    setIsLoading(true);
+    const fetchedNotifications: Notification[] = [];
+    const readNotificationIds = getReadNotificationIds();
+    
+    try {
+      // Fetch regular notifications
+      const response = await fetch('/api/vendor/notifications');
+      if (response.ok) {
+        const data = await response.json();
+        fetchedNotifications.push(...data
+          .filter((n: any) => !readNotificationIds.has(n.id))
+          .map((n: any) => ({
+            id: n.id,
+            type: n.type as NotificationType,
+            title: n.title,
+            message: n.message,
+            createdAt: n.created_at || new Date().toISOString(),
+            isRead: n.is_read || false,
+            readAt: n.read_at || null
+          }))
+        );
+      }
+
+      // Add system notifications (example: subscription expiry)
+      if (currentUser) {
+        const { data: vendorData } = await supabase
+          .from('vendors')
+          .select('subscription_end_date, updated_at')
+          .eq('user_id', currentUser.id)
+          .single();
+
+        if (vendorData?.subscription_end_date) {
+          const endDate = new Date(vendorData.subscription_end_date);
+          const now = new Date();
+          const daysRemaining = differenceInDays(endDate, now);
+          
+          if (daysRemaining >= 0 && daysRemaining <= 14) {
+            fetchedNotifications.push({
+              id: `sub_expiry_${currentUser.id}`,
+              type: 'subscription',
+              title: 'Subscription Expiring Soon',
+              message: `Your subscription will expire in ${daysRemaining} day${daysRemaining !== 1 ? 's' : ''}.`,
+              createdAt: vendorData.updated_at || new Date().toISOString(),
+              isRead: readNotificationIds.has(`sub_expiry_${currentUser.id}`),
+              readAt: null
+            });
+          }
+        }
+      }
+
+      // Sort by creation date (newest first)
+      fetchedNotifications.sort((a, b) => 
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+
+      setNotifications(fetchedNotifications);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+      setNotifications([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [currentUser, getReadNotificationIds]);
+
+  const markNotificationAsRead = useCallback(async (notificationId: string): Promise<MarkAsReadResponse> => {
+    if (!notificationId) {
+      return { success: false };
+    }
+
+    const isSystemNotification = [
+      'sub_', 'system_', 'expiry_', 'warning_', 'info_', 'low_stock_'
+    ].some(prefix => notificationId.startsWith(prefix));
+
+    // Update local state optimistically
+    setNotifications(prev => 
+      prev.map(n => n.id === notificationId ? { ...n, isRead: true, readAt: new Date().toISOString() } : n)
+    );
+
+    // Update localStorage
+    markNotificationAsReadInStorage(notificationId);
+
+    if (!isSystemNotification) {
+      try {
+        const response = await fetch(`/api/vendor/notifications/${encodeURIComponent(notificationId)}/read`, {
+          method: 'POST',
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to mark notification as read');
+        }
+        
+        return { success: true, notificationId };
+      } catch (error) {
+        console.error('Error marking notification as read:', error);
+        // Revert optimistic update on error
+        setNotifications(prev => 
+          prev.map(n => n.id === notificationId ? { ...n, isRead: false, readAt: null } : n)
+        );
+        return { success: false, notificationId };
+      }
+    }
+
+    return { success: true, isSystemNotification: true, notificationId };
+  }, [markNotificationAsReadInStorage]);
+
+  // Calculate unread count
+  const notificationCount = useMemo(() => {
+    const readIds = getReadNotificationIds();
+    return notifications.filter(n => !n.isRead && !readIds.has(n.id)).length;
+  }, [notifications, getReadNotificationIds]);
+
+  // Initial fetch
+  useEffect(() => {
+    fetchNotifications();
+  }, [fetchNotifications, pathname]);
+
+  const contextValue = useMemo(() => ({
+    notifications,
+    notificationCount,
+    isLoading,
+    fetchNotifications,
+    markNotificationAsRead
+  }), [notifications, notificationCount, isLoading, fetchNotifications, markNotificationAsRead]);
+
+  return (
+    <NotificationContext.Provider value={contextValue}>
+      {children}
+    </NotificationContext.Provider>
+  );
+};
+
+export const useNotifications = (): NotificationContextType => {
+  const context = useContext(NotificationContext);
+  if (context === undefined) {
+    throw new Error('useNotifications must be used within a NotificationProvider');
+  }
+  return context;
+};

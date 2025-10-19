@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import type { User } from '@/lib/types';
+import type { Address } from '@/lib/types';
 import type { Session, User as SupabaseAuthUser } from '@supabase/supabase-js';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from "next/navigation";
@@ -65,12 +66,15 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   const fetchUserProfile = useCallback(async (authUser: SupabaseAuthUser | null) => {
     if (!authUser) {
+      console.log('fetchUserProfile: No auth user provided');
       setCurrentUser(null);
       cacheUser(null);
       setLoadingUser(false);
       setInitialLoad(false);
       return;
     }
+
+    console.log('fetchUserProfile: Fetching profile for user:', authUser.id);
     try {
       const { data: profile, error } = await supabase
         .from("user_profiles")
@@ -78,14 +82,29 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         .eq("id", authUser.id)
         .single();
 
-      if (error && error.code !== "PGRST116") { // 'PGRST116' is the code for no rows found
-        console.error("Error fetching user profile:", error);
-        throw error;
+      if (error) {
+        if (error.code === "PGRST116") {
+          // No profile found for this user
+          console.log('fetchUserProfile: No profile found for user:', authUser.id);
+          setCurrentUser(null);
+          cacheUser(null);
+        } else {
+          console.error("Error fetching user profile:", error);
+          throw error;
+        }
+      } else {
+        console.log('fetchUserProfile: Profile found:', profile);
+        const userProfile: User = {
+          id: profile.id,
+          email: profile.email,
+          name: profile.name || undefined,
+          phone: profile.phone || undefined,
+          role: profile.role,
+          address: profile.address ? (profile.address as unknown as Address) : undefined,
+        };
+        setCurrentUser(userProfile);
+        cacheUser(userProfile);
       }
-
-      const userProfile = profile as User | null;
-      setCurrentUser(userProfile);
-      cacheUser(userProfile);
     } catch (e) {
       console.error("An error occurred in fetchUserProfile:", e);
       setCurrentUser(null);
@@ -115,11 +134,25 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     // Fetch initial session in background - don't block UI
     const getInitialSession = async () => {
         try {
-          const { data: { session } } = await supabase.auth.getSession();
+          console.log('getInitialSession: Starting session fetch...');
+          const { data: { session }, error } = await supabase.auth.getSession();
+
+          if (error) {
+            console.error('getInitialSession: Error fetching session:', error);
+            setLoadingUser(false);
+            setInitialLoad(false);
+            return;
+          }
+
+          console.log('getInitialSession: Session fetched:', session ? 'Session exists' : 'No session');
+          if (session) {
+            console.log('getInitialSession: User ID:', session.user?.id);
+          }
+
           setSession(session);
           await fetchUserProfile(session?.user ?? null);
         } catch (error) {
-          console.error('Error fetching initial session:', error);
+          console.error('getInitialSession: Exception occurred:', error);
           setLoadingUser(false);
           setInitialLoad(false);
         }
@@ -145,19 +178,52 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = async () => {
-    await supabase.auth.signOut();
-    setCurrentUser(null); // Immediately clear user state
-    cacheUser(null); // Clear cached user
-    setSession(null);
-    router.push("/");
+    try {
+      console.log('UserContext: Starting logout...');
+
+      // Clear local state immediately for better UX
+      console.log('UserContext: Clearing local state first...');
+      setCurrentUser(null);
+      cacheUser(null);
+      setSession(null);
+      console.log('UserContext: Local state cleared');
+
+      // Start redirect immediately - don't wait for Supabase
+      console.log('UserContext: Redirecting to home immediately...');
+      router.push("/");
+      console.log('UserContext: Redirect initiated');
+
+      // Fire-and-forget Supabase signOut (don't await it)
+      console.log('UserContext: Calling supabase.auth.signOut() in background...');
+      supabase.auth.signOut().then(({ error }) => {
+        if (error) {
+          console.error('UserContext: Supabase signOut error (non-blocking):', error);
+        } else {
+          console.log('UserContext: Supabase signOut successful (background)');
+        }
+      }).catch(error => {
+        console.warn('UserContext: Supabase signOut failed (background):', error);
+      });
+
+    } catch (error) {
+      console.error('UserContext: Logout failed with error:', error);
+      // Even if there's an error, redirect anyway since local state is cleared
+      router.push("/");
+    }
   };
 
   const updateUser = async (updates: Partial<User>) => {
     if (!currentUser) return { success: false, error: "No user logged in" };
 
+    // Convert Address to Json if present
+    const updateData: any = { ...updates };
+    if (updates.address) {
+      updateData.address = updates.address as any;
+    }
+
     const { data, error } = await supabase
       .from("user_profiles")
-      .update(updates)
+      .update(updateData)
       .eq("id", currentUser.id)
       .select()
       .single();
@@ -167,7 +233,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       return { success: false, error: error.message };
     }
 
-    setCurrentUser(data as User | null);
+    setCurrentUser(data as unknown as User | null);
     toast({ title: "Profile Updated", description: "Your details have been saved." });
     return { success: true };
   };

@@ -86,26 +86,32 @@ export default function FlashSaleForm({ sale }: FlashSaleFormProps) {
     const fetchProducts = async () => {
       setIsFetchingProducts(true);
       try {
+        // Only select fields needed for the dropdown and limit results for performance
         const { data, error } = await supabase
           .from('products')
-          .select('*')
-          .order('name', { ascending: true });
-          
+          .select('id, name, stock, price')
+          .gt('stock', 0) // Only products that are in stock
+          .order('name', { ascending: true })
+          .limit(500); // Limit to first 500 products for performance
+
         if (error) throw error;
 
         // Map the data to match the Product type
         const formattedProducts = (data || []).map(product => ({
-          ...product,
-          // Map any fields that need renaming here
-          // For example, if your Product type expects 'categoryId' but your DB has 'category_id':
-          categoryId: product.category_id,
-          // Ensure all required fields are present
           id: product.id,
           name: product.name || 'Unnamed Product',
           price: product.price || 0,
-          description: product.description || '',
-          images: product.images || [],
-          stock: product.stock || 0
+          stock: product.stock || 0,
+          description: '', // Not needed for dropdown
+          images: [], // Not needed for dropdown
+          categoryId: null, // Not needed for dropdown
+          // Add other required fields with defaults
+          average_rating: 0,
+          review_count: 0,
+          vendor_id: '',
+          category_id: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         }));
 
         setProducts(formattedProducts);
@@ -116,7 +122,7 @@ export default function FlashSaleForm({ sale }: FlashSaleFormProps) {
         setIsFetchingProducts(false);
       }
     };
-    
+
     fetchProducts();
   }, []);
 

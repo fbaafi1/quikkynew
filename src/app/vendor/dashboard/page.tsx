@@ -12,7 +12,7 @@ async function getVendorDashboardData() {
 
     const { data: vendorData, error: vendorError } = await supabase
         .from('vendors')
-        .select('id, subscription_end_date')
+        .select('id, subscription_end_date, agreement_accepted, agreement_accepted_at')
         .eq('user_id', userId)
         .single();
     

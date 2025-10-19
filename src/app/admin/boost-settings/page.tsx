@@ -33,9 +33,13 @@ export default async function AdminBoostSettingsPage() {
     const { plans, maxBoostedProducts } = await getBoostSettings();
 
     return (
-        <div className="space-y-8">
+        <div className="space-y-6 sm:space-y-8">
             <div className="flex items-center justify-between gap-4">
-                <h1 className="text-xl sm:text-2xl md:text-3xl font-bold flex items-center gap-2"><Settings size={30}/> Boost Settings</h1>
+                <h1 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold flex items-center gap-2">
+                    <Settings className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8" />
+                    <span className="hidden sm:inline">Boost Settings</span>
+                    <span className="sm:hidden">Settings</span>
+                </h1>
             </div>
             <AdminBoostSettingsClient initialPlans={plans} initialMaxBoosts={maxBoostedProducts} />
         </div>

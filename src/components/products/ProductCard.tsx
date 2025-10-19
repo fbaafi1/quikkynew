@@ -100,8 +100,8 @@ export default function ProductCard({ product }: { product: Product }) {
           </div>
         </Link>
         {isBoosted && (
-          <Badge variant="default" className="absolute top-2 left-2 z-10 bg-primary/90 text-primary-foreground flex items-center gap-1 shadow-lg">
-            <Rocket size={12} />
+          <Badge variant="default" className="absolute top-2 left-2 z-10 bg-primary/90 text-primary-foreground flex items-center gap-1 shadow-lg text-xs">
+            <Rocket size={10} />
             Featured
           </Badge>
         )}
@@ -117,18 +117,18 @@ export default function ProductCard({ product }: { product: Product }) {
         </Button>
       </div>
 
-      <CardContent className="p-2 flex flex-col flex-grow justify-between">
-        <div>
+      <CardContent className="p-3 flex flex-col flex-grow justify-between">
+        <div className="min-h-0">
           <Link href={`/products/${product.id}`} className="hover:text-primary transition-colors">
-            <p className="text-sm font-semibold leading-tight truncate" title={product.name}>
+            <p className="text-sm font-semibold leading-tight line-clamp-2" title={product.name}>
               {product.name}
             </p>
           </Link>
           <div className="flex items-baseline gap-2 mt-1">
-            <p className="text-lg font-bold text-primary">GH₵{product.price.toFixed(2)}</p>
+            <p className="text-base font-bold text-primary">GH₵{product.price.toFixed(2)}</p>
           </div>
         </div>
-        <div className="mt-2">
+        <div className="mt-3">
           <Button
             onClick={handleAddToCart}
             className="w-full relative z-10"
@@ -137,8 +137,8 @@ export default function ProductCard({ product }: { product: Product }) {
             disabled={product.stock === 0 && currentUser !== null}
             title={product.stock > 0 ? 'Add to Cart' : (currentUser ? 'Out of Stock' : 'Login to Add to Cart')}
           >
-            <ShoppingCart size={16} />
-            <span className="ml-2">
+            <ShoppingCart size={14} />
+            <span className="ml-2 text-sm">
               {product.stock > 0 ? 'Add to Cart' : (currentUser ? 'Out of Stock' : 'Add to Cart')}
             </span>
           </Button>

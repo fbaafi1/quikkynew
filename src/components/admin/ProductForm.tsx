@@ -53,6 +53,7 @@ const MAX_IMAGES = 4;
 const productFormSchema = z.object({
   name: z.string().min(3, { message: "Product name must be at least 3 characters." }),
   description: z.string().min(10, { message: "Description must be at least 10 characters." }),
+  link_url: z.string().url({ message: "Please enter a valid URL." }).optional().or(z.literal('')),
   price: z.coerce.number().min(0.01, { message: "Price must be positive." }),
   categoryId: z.string({ required_error: "Please select a subcategory." }).min(1, { message: "Please select a subcategory." }),
   vendor_id: z.string({ required_error: "Please assign a vendor." }).nullable(),
@@ -103,6 +104,7 @@ export default function ProductForm({ product }: ProductFormProps) {
     defaultValues: {
       name: product?.name || "",
       description: product?.description || "",
+      link_url: product?.link_url || "",
       price: product?.price || 0,
       categoryId: product?.categoryId || "",
       vendor_id: product?.vendor_id || null,
@@ -149,7 +151,7 @@ export default function ProductForm({ product }: ProductFormProps) {
         if (isVendorUser) {
            const { data: vendorData, error: vendorError } = await supabase
             .from('vendors')
-            .select('id, store_name, subscription_start_date, subscription_end_date')
+            .select('id, store_name, user_id, is_verified, subscription_start_date, subscription_end_date')
             .eq('user_id', currentUser.id)
             .single();
 
@@ -182,7 +184,7 @@ export default function ProductForm({ product }: ProductFormProps) {
            }
         } else {
            // Admin user logic
-           const vendorsRes = await supabase.from('vendors').select('id, store_name').order('store_name');
+           const vendorsRes = await supabase.from('vendors').select('id, store_name, user_id, is_verified').order('store_name');
            if (vendorsRes.error) throw new Error(`Vendors: ${vendorsRes.error.message}`);
            setVendors(vendorsRes.data || []);
            setIsSubscriptionActive(true); // Admins can always edit
@@ -255,6 +257,7 @@ export default function ProductForm({ product }: ProductFormProps) {
     const productDataForSupabase = {
       name: values.name,
       description: values.description,
+      link_url: values.link_url || null,
       price: values.price,
       category_id: values.categoryId,
       vendor_id: values.vendor_id,
@@ -350,6 +353,22 @@ export default function ProductForm({ product }: ProductFormProps) {
                   <FormControl>
                     <Textarea placeholder="Detailed product description..." {...field} rows={5} />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="link_url"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Product Link (Optional)</FormLabel>
+                  <FormControl>
+                    <Input type="url" placeholder="https://example.com/video-or-product-link" {...field} />
+                  </FormControl>
+                  <FormDescription>
+                    Optional link to a video, demo, or external product page (e.g., YouTube video, product demo, etc.)
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}

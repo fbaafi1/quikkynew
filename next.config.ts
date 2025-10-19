@@ -59,6 +59,8 @@ const nextConfig: NextConfig = {
   },
   // Disable source maps in production
   productionBrowserSourceMaps: false,
+
+  // Image optimization
   images: {
     remotePatterns: [
       {
@@ -74,7 +76,57 @@ const nextConfig: NextConfig = {
         pathname: '/storage/v1/object/public/**',
       },
     ],
+    // Optimize images automatically
+    formats: ['image/webp', 'image/avif'],
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
   },
+
+  // Performance optimizations
+  experimental: {
+    optimizeCss: true,
+    optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
+    turbo: {
+      rules: {
+        '*.svg': {
+          loaders: ['@svgr/webpack'],
+          as: '*.js',
+        },
+      },
+    },
+  },
+
+  // Bundle analyzer (uncomment for development)
+  // experimental: {
+  //   bundleAnalyzer: {
+  //     enabled: process.env.ANALYZE === 'true',
+  //   },
+  // },
+
+  // Webpack optimization
+  webpack: (config, { isServer }) => {
+    // Optimize bundle size
+    if (!isServer) {
+      config.optimization.splitChunks.cacheGroups = {
+        ...config.optimization.splitChunks.cacheGroups,
+        vendor: {
+          test: /[\\/]node_modules[\\/]/,
+          name: 'vendors',
+          chunks: 'all',
+          priority: 10,
+        },
+        commons: {
+          name: 'commons',
+          chunks: 'all',
+          minChunks: 2,
+          priority: 5,
+        },
+      };
+    }
+
+    return config;
+  },
+
   async headers() {
     return [
       {

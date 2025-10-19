@@ -13,20 +13,35 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuPortal,
 } from '@/components/ui/dropdown-menu';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 import { SheetClose } from '../ui/sheet';
 import { ScrollArea } from '../ui/scroll-area';
 import { useCategoriesFallback } from '@/hooks/useCategoriesFallback';
+import { useState } from 'react';
 
 export default function CategoryNavigation({ isMobile = false }: { isMobile?: boolean }) {
   const { categoryTree, isLoading, error } = useCategoriesFallback();
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+  const [loadingCategory, setLoadingCategory] = useState<string | null>(null);
+
+  const toggleCategory = (categoryId: string) => {
+    const newExpanded = new Set(expandedCategories);
+    if (newExpanded.has(categoryId)) {
+      newExpanded.delete(categoryId);
+    } else {
+      newExpanded.add(categoryId);
+    }
+    setExpandedCategories(newExpanded);
+  };
+
+  const handleCategoryClick = (categoryId: string, categoryName: string) => {
+    setLoadingCategory(categoryId);
+    // Add a small delay to show the loading state before navigation
+    setTimeout(() => {
+      setLoadingCategory(null);
+    }, 300);
+  };
 
   if (isLoading) {
     return isMobile ? (
@@ -57,30 +72,74 @@ export default function CategoryNavigation({ isMobile = false }: { isMobile?: bo
   if (isMobile) {
     return (
         <ScrollArea className="h-full w-full p-4">
-            <h2 className="text-lg font-semibold mb-2 text-primary">Categories</h2>
-            <Accordion type="multiple" className="w-full">
+            <h2 className="text-lg font-semibold mb-4 text-primary">Categories</h2>
+            <div className="space-y-2">
                 {categoryTree.map(mainCat => (
-                <AccordionItem key={mainCat.id} value={mainCat.id}>
-                    <AccordionTrigger>{mainCat.name}</AccordionTrigger>
-                    <AccordionContent>
-                    <div className="flex flex-col items-start pl-4">
-                        <SheetClose asChild>
-                            <Button variant="link" asChild className="p-0 h-auto justify-start text-primary">
-                                <Link href={`/products/category/${mainCat.id}`}>All {mainCat.name}</Link>
-                            </Button>
-                        </SheetClose>
-                        {mainCat.subcategories.map(subCat => (
-                        <SheetClose asChild key={subCat.id}>
-                            <Button variant="link" asChild className="p-0 h-auto justify-start text-muted-foreground">
-                                <Link href={`/products/category/${subCat.id}`}>{subCat.name}</Link>
-                            </Button>
-                        </SheetClose>
-                        ))}
-                    </div>
-                    </AccordionContent>
-                </AccordionItem>
+                    mainCat.subcategories.length > 0 ? (
+                        // Categories with subcategories - expandable
+                        <div key={mainCat.id} className="border rounded-lg">
+                            <button
+                                onClick={() => toggleCategory(mainCat.id)}
+                                className="w-full text-left p-3 font-medium hover:bg-muted/50 rounded-t-lg transition-colors flex items-center justify-between"
+                            >
+                                <span>{mainCat.name}</span>
+                                <ChevronRight className={`h-4 w-4 transition-transform ${expandedCategories.has(mainCat.id) ? 'rotate-90' : ''}`} />
+                            </button>
+                        {expandedCategories.has(mainCat.id) && (
+                            <div className="border-t bg-muted/20">
+                                <div className="flex flex-col items-start pl-6 py-3 space-y-2">
+                                    {loadingCategory === mainCat.id ? (
+                                        // Loading skeleton for category
+                                        <div className="w-full space-y-3">
+                                            {Array.from({ length: 3 }).map((_, i) => (
+                                                <div key={i} className="flex items-center gap-3 p-2">
+                                                    <div className="w-8 h-8 bg-muted animate-pulse rounded" />
+                                                    <div className="flex-1 space-y-1">
+                                                        <div className="h-3 w-3/4 bg-muted animate-pulse rounded" />
+                                                        <div className="h-2 w-1/2 bg-muted animate-pulse rounded" />
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <Link href={`/products/category/${mainCat.id}`} className="text-primary font-medium hover:underline">
+                                                All {mainCat.name}
+                                            </Link>
+                                            {mainCat.subcategories.map(subCat => (
+                                            <Link key={subCat.id} href={`/products/category/${subCat.id}`} className="text-muted-foreground hover:underline">
+                                                {subCat.name}
+                                            </Link>
+                                            ))}
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                        </div>
+                    ) : (
+                        // Categories without subcategories - direct navigation
+                        <div className="border rounded-lg">
+                            {loadingCategory === mainCat.id ? (
+                                // Loading skeleton for standalone category
+                                <div className="p-3 space-y-2">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 bg-muted animate-pulse rounded" />
+                                        <div className="flex-1 space-y-1">
+                                            <div className="h-3 w-3/4 bg-muted animate-pulse rounded" />
+                                            <div className="h-2 w-1/2 bg-muted animate-pulse rounded" />
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <Link href={`/products/category/${mainCat.id}`} className="block p-3 hover:bg-muted/50 transition-colors">
+                                    <span className="font-medium">{mainCat.name}</span>
+                                </Link>
+                            )}
+                        </div>
+                    )
                 ))}
-            </Accordion>
+            </div>
         </ScrollArea>
     );
   }

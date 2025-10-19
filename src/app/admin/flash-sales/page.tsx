@@ -106,93 +106,177 @@ export default function AdminFlashSalesPage() {
   }
   
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold flex items-center gap-2"><Zap /> Flash Sale Management</h1>
-        <Button asChild>
-          <Link href="/admin/flash-sales/new"><PlusCircle className="mr-2 h-4 w-4" /> Create New Sale</Link>
-        </Button>
+    <div className="min-h-screen bg-gray-50 w-full">
+      <div className="w-full mx-auto px-1 sm:px-4 lg:px-6 py-4 max-w-full overflow-hidden">
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white p-3 sm:p-4 rounded-lg shadow-sm w-full">
+            <h1 className="text-base sm:text-lg lg:text-xl font-bold flex items-center gap-2 text-gray-900 min-w-0">
+              <Zap className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-500 flex-shrink-0" />
+              <span className="hidden sm:inline truncate">Flash Sale Management</span>
+              <span className="sm:hidden truncate">Flash Sales</span>
+            </h1>
+            <Button asChild className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white text-sm">
+              <Link href="/admin/flash-sales/new" className="flex items-center justify-center gap-2 min-w-0">
+                <PlusCircle className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                <span className="hidden sm:inline truncate">Create New Sale</span>
+                <span className="sm:hidden truncate">New Sale</span>
+              </Link>
+            </Button>
+          </div>
+
+          <Card className="shadow-sm w-full overflow-hidden">
+            <CardHeader className="pb-3 sm:pb-4 bg-gray-50 border-b px-3 sm:px-6">
+              <CardTitle className="text-sm sm:text-base lg:text-lg text-gray-900">All Flash Sales</CardTitle>
+              <CardDescription className="text-xs sm:text-sm text-gray-600">
+                Manage active, scheduled, and expired flash sales.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="px-1 sm:px-6">
+              <div className="w-full">
+                <div className="overflow-x-auto">
+                  <Table className="min-w-full">
+                    <TableHeader>
+                      <TableRow className="border-b">
+                        <TableHead className="min-w-[100px] w-[100px] px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Product
+                        </TableHead>
+                        <TableHead className="min-w-[50px] w-[50px] px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Discount
+                        </TableHead>
+                        <TableHead className="min-w-[100px] hidden sm:table-cell px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Sale Period
+                        </TableHead>
+                        <TableHead className="min-w-[40px] w-[40px] px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Stock
+                        </TableHead>
+                        <TableHead className="min-w-[50px] w-[50px] px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Status
+                        </TableHead>
+                        <TableHead className="min-w-[60px] w-[60px] px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Actions
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {sales.length > 0 ? sales.map(sale => {
+                        const status = getStatusBadge(sale);
+                        return (
+                          <TableRow key={sale.id} className="border-b border-gray-200 hover:bg-gray-50">
+                            <TableCell className="px-1 py-2">
+                              <div className="flex flex-col min-w-0">
+                                <span className="font-medium text-xs sm:text-sm text-gray-900 truncate max-w-[80px] sm:max-w-none">
+                                  {sale.products?.name || 'Unknown Product'}
+                                </span>
+                                <span className="text-xs text-gray-500 sm:hidden mt-1">
+                                  {format(new Date(sale.start_date), 'MMM dd')} - {format(new Date(sale.end_date), 'MMM dd')}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="px-1 py-2">
+                              <span className="text-xs font-medium">
+                                {sale.discount_type === 'percentage'
+                                  ? `${sale.discount_value}%`
+                                  : `GH₵${sale.discount_value.toFixed(0)}`
+                                }
+                              </span>
+                            </TableCell>
+                            <TableCell className="hidden sm:table-cell px-1 py-2">
+                              <span className="text-xs text-gray-600">
+                                {format(new Date(sale.start_date), 'MMM dd')} - {format(new Date(sale.end_date), 'MMM dd')}
+                              </span>
+                            </TableCell>
+                            <TableCell className="px-1 py-2">
+                              <span className="text-xs text-gray-600">{sale.stock_cap ?? '∞'}</span>
+                            </TableCell>
+                            <TableCell className="px-1 py-2">
+                              <Badge variant={status.variant} className="text-xs px-1 py-0.5">
+                                {status.text}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="px-1 py-2 text-right">
+                              <div className="flex items-center justify-end gap-0.5">
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-6 w-6 border-gray-300"
+                                  asChild
+                                >
+                                  <Link href={`/admin/flash-sales/${sale.id}/edit`} title="Edit">
+                                    <Edit className="h-2.5 w-2.5 text-gray-600" />
+                                  </Link>
+                                </Button>
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button
+                                          variant="destructive"
+                                          size="icon"
+                                          className="h-6 w-6"
+                                          title="Delete"
+                                        >
+                                          <Trash2 className="h-2.5 w-2.5" />
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent className="mx-2 max-w-[calc(100vw-1rem)]">
+                                        <AlertDialogHeader>
+                                        <AlertDialogTitle className="text-sm">Delete this flash sale?</AlertDialogTitle>
+                                        <AlertDialogDescription className="text-xs">This action cannot be undone.</AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter className="gap-1 sm:gap-0">
+                                        <AlertDialogCancel className="text-xs px-2 py-1">Cancel</AlertDialogCancel>
+                                        <AlertDialogAction onClick={() => handleDelete(sale.id)} className="text-xs px-2 py-1">Delete</AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      }) : (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center h-20 text-gray-500 text-xs">
+                            No flash sales found.
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            </CardContent>
+            {totalPages > 1 && (
+              <CardFooter className="px-4 sm:px-6">
+                <div className="flex flex-col sm:flex-row items-center justify-between sm:justify-center gap-4 w-full mt-4 pt-4 border-t">
+                  <div className="flex items-center gap-2 order-2 sm:order-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="flex items-center gap-1"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      <span className="hidden sm:inline">Prev</span>
+                    </Button>
+                    <span className="text-sm text-muted-foreground px-2">
+                      {currentPage} / {totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                      className="flex items-center gap-1"
+                    >
+                      <span className="hidden sm:inline">Next</span>
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </CardFooter>
+            )}
+          </Card>
+        </div>
       </div>
-      <Card>
-        <CardHeader>
-          <CardTitle>All Flash Sales</CardTitle>
-          <CardDescription>Manage active, scheduled, and expired flash sales.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Product</TableHead>
-                <TableHead>Discount</TableHead>
-                <TableHead>Sale Period</TableHead>
-                <TableHead>Stock Cap</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {sales.length > 0 ? sales.map(sale => {
-                const status = getStatusBadge(sale);
-                return (
-                  <TableRow key={sale.id}>
-                    <TableCell className="font-medium">{sale.products?.name || 'Unknown Product'}</TableCell>
-                    <TableCell>
-                      {sale.discount_type === 'percentage' 
-                        ? `${sale.discount_value}% OFF`
-                        : `GH₵${sale.discount_value.toFixed(2)} OFF`
-                      }
-                    </TableCell>
-                    <TableCell>
-                      {format(new Date(sale.start_date), 'PP p')} to {format(new Date(sale.end_date), 'PP p')}
-                    </TableCell>
-                    <TableCell>{sale.stock_cap ?? 'Unlimited'}</TableCell>
-                    <TableCell><Badge variant={status.variant}>{status.text}</Badge></TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button variant="outline" size="icon" asChild>
-                          <Link href={`/admin/flash-sales/${sale.id}/edit`}><Edit className="h-4 w-4" /></Link>
-                        </Button>
-                        <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                <Button variant="destructive" size="icon" title="Delete Sale"><Trash2 className="h-4 w-4" /></Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                <AlertDialogTitle>Delete this flash sale?</AlertDialogTitle>
-                                <AlertDialogDescription>This action cannot be undone. It will permanently remove the sale details.</AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleDelete(sale.id)}>Delete</AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              }) : (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center h-24">No flash sales found.</TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-        {totalPages > 1 && (
-          <CardFooter>
-            <div className="flex items-center justify-center space-x-2 w-full mt-6 pt-4 border-t">
-              <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>
-                <ChevronLeft className="h-4 w-4 mr-1" /> Previous
-              </Button>
-              <span className="text-sm text-muted-foreground">Page {currentPage} of {totalPages}</span>
-              <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>
-                Next <ChevronRight className="h-4 w-4 ml-1" />
-              </Button>
-            </div>
-          </CardFooter>
-        )}
-      </Card>
     </div>
   );
 }

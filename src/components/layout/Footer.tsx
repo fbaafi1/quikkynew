@@ -86,6 +86,8 @@ export default function Footer() {
             <ul className="space-y-2 text-sm text-primary-foreground/80">
               <li><Link href="/blog" className="hover:text-accent transition-colors">Blog</Link></li>
               <li><Link href="/orders" className="hover:text-accent transition-colors">My Orders</Link></li>
+              <li><Link href="/terms" className="hover:text-accent transition-colors">Terms & Conditions</Link></li>
+              <li><Link href="/privacy" className="hover:text-accent transition-colors">Privacy Policy</Link></li>
             </ul>
           </div>
           <div>

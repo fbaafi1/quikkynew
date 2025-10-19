@@ -1,21 +1,10 @@
 "use client";
 
 import { useUser } from '@/contexts/UserContext';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { ReactNode, useEffect, useState } from 'react';
 import { Spinner } from '@/components/ui/spinner';
-import {
-  Sidebar,
-  SidebarProvider,
-  SidebarContent,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuItem,
-  SidebarMenuButton,
-  SidebarFooter,
-  SidebarInset,
-  SidebarTrigger
-} from '@/components/ui/sidebar';
+import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import {
@@ -23,26 +12,63 @@ import {
   Package,
   ClipboardList,
   Settings,
-  Bell
+  Bell,
+  Menu,
+  X,
+  ChevronRight,
+  ChevronLeft
 } from 'lucide-react';
 import { useNotifications } from '@/contexts/NotificationContext';
-import { Badge } from '@/components/ui/badge';
 import LogoutButton from '@/components/auth/LogoutButton';
 
 const vendorNavItems = [
-  { href: '/vendor/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/vendor/products', label: 'Products', icon: Package },
-  { href: '/vendor/orders', label: 'Orders', icon: ClipboardList },
-  { href: '/vendor/notifications', label: 'Notifications', icon: Bell },
-  { href: '/vendor/settings', label: 'Store Settings', icon: Settings },
+  { 
+    href: '/vendor/dashboard', 
+    label: 'Dashboard', 
+    icon: LayoutDashboard,
+    description: 'View your store analytics and overview',
+    showBadge: false
+  },
+  { 
+    href: '/vendor/products', 
+    label: 'Products', 
+    icon: Package,
+    description: 'Manage your product listings',
+    showBadge: false
+  },
+  { 
+    href: '/vendor/orders', 
+    label: 'Orders', 
+    icon: ClipboardList,
+    description: 'View and manage customer orders',
+    showBadge: false
+  },
+  { 
+    href: '/vendor/notifications', 
+    label: 'Notifications', 
+    icon: Bell,
+    description: 'View your notifications',
+    showBadge: true
+  },
+  { 
+    href: '/vendor/settings', 
+    label: 'Settings', 
+    icon: Settings,
+    description: 'Configure your store settings',
+    showBadge: false
+  },
 ];
 
 export default function VendorLayout({ children }: { children: ReactNode }) {
   const { currentUser, loadingUser } = useUser();
   const { notificationCount } = useNotifications();
   const router = useRouter();
+  const pathname = usePathname();
   const [status, setStatus] = useState<'checking' | 'denied' | 'granted'>('checking');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
+  // Handle user authentication status
   useEffect(() => {
     if (loadingUser) return; // still loading user
 
@@ -54,6 +80,12 @@ export default function VendorLayout({ children }: { children: ReactNode }) {
     }
   }, [currentUser, loadingUser, router]);
 
+  // Close mobile menu when route changes
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [pathname]);
+
+  // Show loading state
   if (status === 'checking') {
     return (
       <div className="flex justify-center items-center min-h-screen bg-background">
@@ -63,56 +95,111 @@ export default function VendorLayout({ children }: { children: ReactNode }) {
     );
   }
 
+  // Handle denied access
   if (status === 'denied') {
     return null; // nothing, since redirect is already triggered
   }
 
-  // ✅ Only gets here if vendor access is granted
   return (
-    <SidebarProvider>
-      <Sidebar>
-        <SidebarHeader>
-          <Button variant="ghost" asChild className="w-full justify-start h-auto p-2">
-            <Link href="/" className="flex items-center gap-2">
-              <span className="text-xl font-bold text-primary">QuiKart</span>
+    <div className="flex h-screen bg-gray-50">
+      {/* Mobile menu button */}
+      <button
+        onClick={() => setIsMobileMenuOpen(true)}
+        className="md:hidden fixed bottom-6 right-6 z-50 bg-primary text-white p-3 rounded-full shadow-lg"
+        aria-label="Open menu"
+      >
+        <Menu className="h-6 w-6" />
+      </button>
+
+      {/* Overlay */}
+      {isMobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <aside 
+        className={cn(
+          "fixed inset-y-0 left-0 z-50 w-64 transform bg-white shadow-lg transition-transform duration-300 ease-in-out md:relative md:translate-x-0",
+          isMobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+        )}
+      >
+        <div className="flex h-full flex-col">
+          {/* Header */}
+          <div className="flex h-16 items-center justify-between border-b px-4">
+            <Link 
+              href="/vendor/dashboard" 
+              className="text-xl font-bold text-primary"
+              onClick={() => setIsMobileMenuOpen(false)}
+            >
+              Vendor Portal
             </Link>
-          </Button>
-        </SidebarHeader>
-        <SidebarContent>
-          <SidebarMenu>
-            {vendorNavItems.map((item) => (
-              <SidebarMenuItem key={item.href}>
-                <SidebarMenuButton asChild className="w-full justify-start relative">
-                  <Link href={item.href}>
-                    <item.icon className="mr-2 h-4 w-4" />
-                    <span>{item.label}</span>
-                    {item.href === '/vendor/notifications' && notificationCount > 0 && (
-                      <Badge
-                        variant="destructive"
-                        className="absolute right-2 h-5 w-5 p-0 flex items-center justify-center text-xs"
-                      >
-                        {notificationCount > 9 ? '9+' : notificationCount}
-                      </Badge>
-                    )}
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
-          </SidebarMenu>
-        </SidebarContent>
-        <SidebarFooter>
-          <LogoutButton />
-        </SidebarFooter>
-      </Sidebar>
-      <SidebarInset>
-        <div className="p-4 sm:p-6 lg:p-8">
-          <div className="md:hidden mb-4">
-            <SidebarTrigger />
+            <button 
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="md:hidden text-gray-500 hover:text-gray-700"
+              aria-label="Close menu"
+            >
+              <X className="h-6 w-6" />
+            </button>
           </div>
+
+          {/* Navigation */}
+          <nav className="flex-1 overflow-y-auto p-4">
+            <ul className="space-y-2">
+              {vendorNavItems.map(({ href, label, icon: Icon, showBadge }) => (
+                <li key={href}>
+                  <Link
+                    href={href}
+                    className={cn(
+                      "flex items-center rounded-lg px-4 py-3 text-sm font-medium transition-colors group",
+                      pathname === href
+                        ? "bg-primary/10 text-primary"
+                        : "text-gray-700 hover:bg-gray-100"
+                    )}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    <div className="relative">
+                      <Icon className="h-5 w-5" />
+                      {showBadge && notificationCount > 0 && (
+                        <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-red-500 text-xs text-white flex items-center justify-center">
+                          {notificationCount > 9 ? '9+' : notificationCount}
+                        </span>
+                      )}
+                    </div>
+                    <span className="ml-3">{label}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
+
+          {/* Footer */}
+          <div className="border-t p-4">
+            <div className="mb-4 flex items-center space-x-3">
+              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                <span className="text-sm font-medium text-primary">
+                  {currentUser?.name?.[0]?.toUpperCase() || 'U'}
+                </span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{currentUser?.name || 'User'}</p>
+                <p className="text-xs text-gray-500 truncate">{currentUser?.email}</p>
+              </div>
+            </div>
+            <LogoutButton className="w-full" />
+          </div>
+        </div>
+      </aside>
+
+      {/* Main content */}
+      <main className="flex-1 overflow-auto pb-16 md:pb-0">
+        <div className="p-4 md:p-6">
           {children}
         </div>
-      </SidebarInset>
-    </SidebarProvider>
+      </main>
+    </div>
   );
 }
 

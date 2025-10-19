@@ -1,37 +1,37 @@
 import { Sparkles } from 'lucide-react';
-import { supabase } from '@/lib/supabaseClient';
+import { createServerSupabaseClient } from '@/lib/supabaseServerClient';
 import { verifyUserRole } from '@/lib/auth';
 import type { BoostRequest } from '@/lib/types';
 import AdminBoostRequestsClient from '@/components/admin/AdminBoostRequestsClient';
 
 
 async function getBoostRequests() {
+    const supabase = createServerSupabaseClient();
+
+    // Use a single query with joins to get all data efficiently
     const { data: requestsData, error: reqError } = await supabase
         .from('boost_requests')
-        .select(`*`)
+        .select(`
+            *,
+            products:product_id (
+                id,
+                name,
+                images
+            ),
+            vendors:vendor_id (
+                id,
+                store_name
+            )
+        `)
         .order('created_at', { ascending: false });
-    
+
     if (reqError) throw reqError;
-    if (!requestsData || requestsData.length === 0) return [];
-    
-    const productIds = [...new Set(requestsData.map(r => r.product_id).filter(Boolean))];
-    const vendorIds = [...new Set(requestsData.map(r => r.vendor_id).filter(Boolean))];
 
-    const productsPromise = supabase.from('products').select('id, name, images').in('id', productIds);
-    const vendorsPromise = supabase.from('vendors').select('id, store_name').in('id', vendorIds);
-    
-    const [productsResult, vendorsResult] = await Promise.all([productsPromise, vendorsPromise]);
-
-    if (productsResult.error) throw new Error(`Products fetch failed: ${productsResult.error.message}`);
-    if (vendorsResult.error) throw new Error(`Vendors fetch failed: ${vendorsResult.error.message}`);
-    
-    const productsMap = new Map(productsResult.data?.map(p => [p.id, p]));
-    const vendorsMap = new Map(vendorsResult.data?.map(v => [v.id, v]));
-
-    const combinedRequests = requestsData.map(req => ({
+    // Transform the data to match the expected format
+    const combinedRequests = (requestsData || []).map(req => ({
         ...req,
-        products: productsMap.get(req.product_id) || null,
-        vendors: vendorsMap.get(req.vendor_id) || null,
+        products: req.products || null,
+        vendors: req.vendors || null,
     }));
 
     return combinedRequests as BoostRequest[];
@@ -43,9 +43,13 @@ export default async function AdminBoostRequestsPage() {
     const requests = await getBoostRequests();
 
     return (
-        <div className="space-y-8">
+        <div className="space-y-6 sm:space-y-8">
             <div className="flex items-center justify-between gap-4">
-                <h1 className="text-xl sm:text-2xl md:text-3xl font-bold flex items-center gap-2"><Sparkles size={30}/> Boost Requests</h1>
+                <h1 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold flex items-center gap-2">
+                    <Sparkles className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8" />
+                    <span className="hidden sm:inline">Boost Requests</span>
+                    <span className="sm:hidden">Boosts</span>
+                </h1>
             </div>
             <AdminBoostRequestsClient initialRequests={requests} />
         </div>

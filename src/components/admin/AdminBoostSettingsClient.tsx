@@ -35,6 +35,8 @@ const boostPlanSchema = z.object({
   duration_days: z.coerce.number().int().min(1, "Duration must be at least 1 day."),
   price: z.coerce.number().min(0, "Price cannot be negative."),
   is_active: z.boolean().default(true),
+  start_date: z.string().optional(),
+  end_date: z.string().optional(),
 });
 
 type BoostPlanFormValues = z.infer<typeof boostPlanSchema>;
@@ -50,6 +52,8 @@ const BoostPlanForm = ({ plan, onFinished }: { plan?: BoostPlan, onFinished: () 
             duration_days: plan?.duration_days || 7,
             price: plan?.price || 0,
             is_active: plan?.is_active ?? true,
+            start_date: plan?.start_date ? new Date(plan.start_date).toISOString().slice(0, 16) : "",
+            end_date: plan?.end_date ? new Date(plan.end_date).toISOString().slice(0, 16) : "",
         },
     });
 
@@ -90,13 +94,35 @@ const BoostPlanForm = ({ plan, onFinished }: { plan?: BoostPlan, onFinished: () 
                         <FormItem><FormLabel>Price (GH₵)</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>
                     )}/>
                 </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField control={form.control} name="start_date" render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Start Date & Time (Optional)</FormLabel>
+                            <FormControl>
+                                <Input type="datetime-local" {...field} />
+                            </FormControl>
+                            <FormDescription>When the boost plan becomes active</FormDescription>
+                            <FormMessage />
+                        </FormItem>
+                    )}/>
+                    <FormField control={form.control} name="end_date" render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>End Date & Time (Optional)</FormLabel>
+                            <FormControl>
+                                <Input type="datetime-local" {...field} />
+                            </FormControl>
+                            <FormDescription>When the boost plan expires</FormDescription>
+                            <FormMessage />
+                        </FormItem>
+                    )}/>
+                </div>
                 <FormField control={form.control} name="is_active" render={({ field }) => (
                     <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
                         <div className="space-y-0.5"><FormLabel>Active</FormLabel><FormDescription>Is this plan available for vendors?</FormDescription></div>
                         <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
                     </FormItem>
                 )}/>
-                 <DialogFooter>
+                <DialogFooter>
                     <Button type="submit" disabled={isSubmitting}>
                         {isSubmitting && <Spinner className="mr-2 h-4 w-4" />}
                         Save Plan
@@ -159,22 +185,22 @@ export default function AdminBoostSettingsClient({ initialPlans, initialMaxBoost
     <>
       <Card>
         <CardHeader>
-          <CardTitle>Global Boost Limit</CardTitle>
-          <CardDescription>Set the maximum number of products that can be boosted site-wide at one time.</CardDescription>
+          <CardTitle className="text-base sm:text-lg md:text-xl">Global Boost Limit</CardTitle>
+          <CardDescription className="text-xs sm:text-sm">Set the maximum number of products that can be boosted site-wide at one time.</CardDescription>
         </CardHeader>
         <CardContent>
-            <form onSubmit={handleUpdateMaxBoosts} className="flex items-end gap-4">
-                <div className="flex-grow">
-                    <Label htmlFor="max-boosts">Max Boosted Products</Label>
+            <form onSubmit={handleUpdateMaxBoosts} className="flex flex-col sm:flex-row items-start sm:items-end gap-3 sm:gap-4">
+                <div className="flex-grow w-full sm:w-auto">
+                    <Label htmlFor="max-boosts" className="text-sm">Max Boosted Products</Label>
                     <Input 
                         id="max-boosts" 
                         type="number"
                         value={maxBoostedProducts}
                         onChange={(e) => setMaxBoostedProducts(parseInt(e.target.value, 10) || 0)}
-                        className="max-w-xs"
+                        className="max-w-xs w-full"
                     />
                 </div>
-                <Button type="submit" disabled={isSavingLimit}>
+                <Button type="submit" disabled={isSavingLimit} size="sm" className="w-full sm:w-auto">
                   {isSavingLimit && <Spinner className="mr-2 h-4 w-4" />}
                   Save Limit
                 </Button>
@@ -184,14 +210,18 @@ export default function AdminBoostSettingsClient({ initialPlans, initialMaxBoost
 
       <Card>
         <CardHeader>
-          <div className="flex justify-between items-center">
-            <div>
-                <CardTitle>Boost Pricing Plans</CardTitle>
-                <CardDescription>Manage the pricing plans vendors can choose from to boost their products.</CardDescription>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4">
+            <div className="flex-1">
+                <CardTitle className="text-base sm:text-lg md:text-xl">Boost Pricing Plans</CardTitle>
+                <CardDescription className="text-xs sm:text-sm">Manage the pricing plans vendors can choose from to boost their products.</CardDescription>
             </div>
              <Dialog open={isPlanFormOpen} onOpenChange={setIsPlanFormOpen}>
                 <DialogTrigger asChild>
-                    <Button onClick={() => setEditingPlan(undefined)}><PlusCircle className="mr-2 h-4 w-4"/> Add Plan</Button>
+                    <Button onClick={() => setEditingPlan(undefined)} size="sm" className="w-full sm:w-auto">
+                      <PlusCircle className="mr-2 h-4 w-4"/>
+                      <span className="hidden sm:inline">Add Plan</span>
+                      <span className="sm:hidden">Add</span>
+                    </Button>
                 </DialogTrigger>
                 <DialogContent>
                     <DialogHeader>
@@ -202,8 +232,10 @@ export default function AdminBoostSettingsClient({ initialPlans, initialMaxBoost
             </Dialog>
           </div>
         </CardHeader>
-        <CardContent>
-          <Table>
+        <CardContent className="p-0 sm:p-6">
+          {/* Desktop Table View */}
+          <div className="hidden md:block overflow-x-auto">
+            <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Plan Name</TableHead>
@@ -240,7 +272,66 @@ export default function AdminBoostSettingsClient({ initialPlans, initialMaxBoost
                 </TableRow>
               )}
             </TableBody>
-          </Table>
+            </Table>
+          </div>
+
+          {/* Mobile Card View */}
+          <div className="md:hidden space-y-4 p-4">
+            {plans.length > 0 ? (
+              plans.map(plan => (
+                <Card key={plan.id} className="p-4">
+                  <div className="space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-sm">{plan.name}</h3>
+                        {plan.description && (
+                          <p className="text-xs text-muted-foreground mt-1">{plan.description}</p>
+                        )}
+                      </div>
+                      <Badge variant={plan.is_active ? 'secondary' : 'outline'} className="flex items-center gap-1 text-xs">
+                        {plan.is_active ? <Eye size={12} /> : <EyeOff size={12} />}
+                        {plan.is_active ? 'Active' : 'Inactive'}
+                      </Badge>
+                    </div>
+                    
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Duration:</span>
+                        <span className="font-medium">{plan.duration_days} days</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Price:</span>
+                        <span className="font-medium">GH₵{plan.price}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2 pt-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="flex-1"
+                        onClick={() => { setEditingPlan(plan); setIsPlanFormOpen(true); }}
+                      >
+                        <Edit className="mr-1 h-3 w-3"/> Edit
+                      </Button>
+                      <Button 
+                        variant="destructive" 
+                        size="sm" 
+                        className="flex-1"
+                        onClick={() => handleDeletePlan(plan.id)}
+                      >
+                        <Trash2 className="mr-1 h-3 w-3"/> Delete
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+              ))
+            ) : (
+              <div className="text-center py-12 text-muted-foreground">
+                No boost plans created yet.
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
     </>

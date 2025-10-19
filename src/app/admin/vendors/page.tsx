@@ -31,10 +31,16 @@ async function getVendors() {
     }
     
     const usersMap = new Map(usersData.map(u => [u.id, u]));
-    const combinedVendors: Vendor[] = vendorsData.map(vendor => ({
-        ...vendor,
-        user: usersMap.get(vendor.user_id) || null,
-    }));
+    const combinedVendors: Vendor[] = vendorsData.map(vendor => {
+        const user = usersMap.get(vendor.user_id);
+        return {
+            ...vendor,
+            user: user ? {
+                email: user.email,
+                name: user.name || '',
+            } : null,
+        };
+    });
 
     return combinedVendors;
 }
@@ -45,13 +51,19 @@ export default async function AdminVendorsPage() {
     const vendors = await getVendors();
 
     return (
-        <div className="space-y-8">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <h1 className="text-xl sm:text-2xl md:text-3xl font-bold flex items-center gap-2"><Store size={30}/> Vendor Management</h1>
-                <Button asChild>
-                <Link href="/admin/vendors/new">
-                    <PlusCircle className="mr-2 h-4 w-4" /> Add New Vendor
-                </Link>
+        <div className="space-y-6 sm:space-y-8">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+                <h1 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold flex items-center gap-2">
+                    <Store className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8" />
+                    <span className="hidden sm:inline">Vendor Management</span>
+                    <span className="sm:hidden">Vendors</span>
+                </h1>
+                <Button asChild size="sm" className="w-full sm:w-auto">
+                    <Link href="/admin/vendors/new">
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        <span className="hidden sm:inline">Add New Vendor</span>
+                        <span className="sm:hidden">Add Vendor</span>
+                    </Link>
                 </Button>
             </div>
             <AdminVendorsClient initialVendors={vendors} />

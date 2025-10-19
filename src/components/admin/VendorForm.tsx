@@ -60,6 +60,7 @@ export default function VendorForm({ vendor }: VendorFormProps) {
   const [isLoadingCustomers, setIsLoadingCustomers] = useState(false);
   const [availableCustomers, setAvailableCustomers] = useState<User[]>([]);
   const [customerComboboxOpen, setCustomerComboboxOpen] = useState(false);
+  const [customerError, setCustomerError] = useState<string | null>(null);
 
   const isEditing = !!vendor;
 
@@ -81,25 +82,94 @@ export default function VendorForm({ vendor }: VendorFormProps) {
       setIsLoadingCustomers(true);
       const fetchAvailableCustomers = async () => {
         try {
+          console.log('🔍 Fetching available customers...');
+
+          // Step 1: Get existing vendor user_ids
           const { data: existingVendorUserIds, error: vendorIdsError } = await supabase
             .from('vendors')
             .select('user_id');
 
-          if (vendorIdsError) throw vendorIdsError;
+          if (vendorIdsError) {
+            console.error('❌ Error fetching vendor user_ids:', vendorIdsError);
+            throw vendorIdsError;
+          }
 
-          const vendorUserIds = existingVendorUserIds.map(v => v.user_id);
+          console.log('✅ Vendor user_ids fetched:', existingVendorUserIds?.length || 0);
 
+          const vendorUserIds = existingVendorUserIds?.map(v => v.user_id).filter(Boolean) || [];
+          console.log('🔍 Vendor user_ids:', vendorUserIds);
+
+          // Step 2: Get all customers
+          console.log('🔍 Querying for customers with role: customer');
           const { data: customersData, error: customersError } = await supabase
             .from('user_profiles')
-            .select('id, name, email')
+            .select('id, name, email, role')
             .eq('role', 'customer');
-          
-          if (customersError) throw customersError;
 
-          const customersNotYetVendors = customersData.filter(c => !vendorUserIds.includes(c.id));
+          if (customersError) {
+            console.error('❌ Error fetching customers:', customersError);
+            throw customersError;
+          }
+
+          console.log('✅ Customers fetched:', customersData?.length || 0);
+          console.log('🔍 First few customers:', customersData?.slice(0, 3) || []);
+
+          if (!customersData || customersData.length === 0) {
+            console.warn('⚠️ No customers found with role "customer"');
+
+            // Try alternative: query all profiles and filter manually
+            console.log('🔄 Trying alternative query approach...');
+            const { data: allProfiles, error: allError } = await supabase
+              .from('user_profiles')
+              .select('id, name, email, role');
+
+            if (allError) {
+              console.error('❌ Alternative query also failed:', allError);
+            } else {
+              console.log('✅ All profiles fetched:', allProfiles?.length || 0);
+              const customerProfiles = allProfiles?.filter(p => p.role === 'customer') || [];
+              console.log('✅ Customers found via alternative method:', customerProfiles.length);
+
+              if (customerProfiles.length > 0) {
+                console.log('🎯 Found customers using alternative method!');
+                // Use the alternative results
+                const customersNotYetVendorsAlt = customerProfiles.filter(c => !vendorUserIds.includes(c.id));
+                console.log('✅ Available customers (alternative):', customersNotYetVendorsAlt.length);
+
+                setAvailableCustomers(customersNotYetVendorsAlt as User[]);
+                setCustomerError(null);
+                return;
+              }
+            }
+
+            setCustomerError('No customers found. Please ensure customers exist with role "customer".');
+            setAvailableCustomers([]);
+            return;
+          }
+
+          // Step 3: Filter out existing vendors
+          const customersNotYetVendors = customersData?.filter(c => !vendorUserIds.includes(c.id)) || [];
+          console.log('✅ Available customers:', customersNotYetVendors.length);
+
           setAvailableCustomers(customersNotYetVendors as User[]);
+          setCustomerError(null);
         } catch (error: any) {
-          console.error("Error fetching customer list.", error.message);
+          console.error('❌ Error fetching customer list:', error);
+
+          let errorMessage = 'Failed to load customers.';
+
+          if (error.message?.includes('relation "user_profiles" does not exist')) {
+            errorMessage = 'User profiles table not found. Please contact support.';
+          } else if (error.message?.includes('permission denied')) {
+            errorMessage = 'Permission denied. Please check database permissions.';
+          } else if (error.message?.includes('network')) {
+            errorMessage = 'Network error. Please check your connection and try again.';
+          } else {
+            errorMessage = `Failed to load customers: ${error.message || 'Unknown error'}`;
+          }
+
+          setCustomerError(errorMessage);
+          setAvailableCustomers([]);
         } finally {
           setIsLoadingCustomers(false);
         }
@@ -107,7 +177,6 @@ export default function VendorForm({ vendor }: VendorFormProps) {
       fetchAvailableCustomers();
     }
   }, [isEditing]);
-
 
   async function onSubmit(values: VendorFormValues) {
     setIsLoading(true);
@@ -130,7 +199,43 @@ export default function VendorForm({ vendor }: VendorFormProps) {
         if (error) throw error;
       } else {
         // Handle creating a new vendor
-        // Step 1: Insert into vendors table
+        // Step 1: Update the user's role to vendor FIRST
+        // First, let's check the current role
+        const { data: currentProfile, error: profileCheckError } = await supabase
+            .from('user_profiles')
+            .select('id, name, email, role')
+            .eq('id', values.user_id)
+            .single();
+
+        if (profileCheckError) {
+            throw new Error(`Failed to check current user profile: ${profileCheckError.message}`);
+        }
+
+        if (currentProfile.role === 'vendor') {
+            // User is already vendor, skipping role update
+        } else {
+            const { error: updateError } = await supabase
+                .from('user_profiles')
+                .update({ role: 'vendor' })
+                .eq('id', values.user_id);
+
+            if (updateError) {
+                throw new Error(`Failed to update user role to vendor: ${updateError.message}`);
+            }
+        }
+
+        // Verify the update worked
+        const { data: updatedProfile, error: verifyError } = await supabase
+            .from('user_profiles')
+            .select('role')
+            .eq('id', values.user_id)
+            .single();
+
+        if (verifyError) {
+            // Error verifying role update
+        }
+
+        // Step 2: Create vendor record with agreement_accepted = false
         const { data: newVendor, error: insertError } = await supabase
             .from('vendors')
             .insert({
@@ -141,28 +246,29 @@ export default function VendorForm({ vendor }: VendorFormProps) {
                 is_verified: values.is_verified,
                 subscription_start_date: values.subscription_start_date?.toISOString() || null,
                 subscription_end_date: values.subscription_end_date?.toISOString() || null,
+                agreement_accepted: false, // New vendors must accept agreement on first login
             })
             .select()
             .single();
 
-        if (insertError) throw insertError;
+        if (insertError) {
+            // Rollback: Change role back to customer
+            const { error: rollbackError } = await supabase
+                .from('user_profiles')
+                .update({ role: 'customer' })
+                .eq('id', values.user_id);
 
-        // Step 2: Update the user's role in the user_profiles table
-        const { error: updateError } = await supabase
-            .from('user_profiles')
-            .update({ role: 'vendor' })
-            .eq('id', values.user_id);
-        
-        if (updateError) {
-            // If updating the role fails, we should roll back the vendor creation to avoid an inconsistent state.
-            await supabase.from('vendors').delete().eq('id', newVendor.id);
-            throw new Error(`Vendor profile created, but failed to update user role. Changes were rolled back. Error: ${updateError.message}`);
+            if (rollbackError) {
+                throw new Error(`Vendor creation failed and role rollback also failed. User role may be inconsistent. Original error: ${insertError.message}`);
+            }
+
+            throw new Error(`Failed to create vendor profile: ${insertError.message}`);
         }
       }
       router.push('/admin/vendors');
       router.refresh();
     } catch (error: any) {
-      console.error("Operation Failed:", error.message);
+      // Handle operation errors
     } finally {
       setIsLoading(false);
     }
@@ -234,22 +340,20 @@ export default function VendorForm({ vendor }: VendorFormProps) {
                       </PopoverContent>
                     </Popover>
                   )}
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <FormField
-              control={form.control}
-              name="store_name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Store Name</FormLabel>
                   <FormControl><Input placeholder="e.g., Kweku's Fresh Produce" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
+
+            {customerError && (
+              <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+                <p className="text-sm text-destructive">{customerError}</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Please check the browser console for more details or contact support.
+                </p>
+              </div>
+            )}
 
             <FormField
               control={form.control}
@@ -261,6 +365,18 @@ export default function VendorForm({ vendor }: VendorFormProps) {
                   <FormDescription>
                     This number will be used for the "Contact on WhatsApp" button on the vendor's storefront.
                   </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="store_name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Store Name</FormLabel>
+                  <FormControl><Input placeholder="e.g., Kweku's Fresh Produce" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )}

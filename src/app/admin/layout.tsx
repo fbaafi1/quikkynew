@@ -105,11 +105,14 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         </SidebarFooter>
       </Sidebar>
       <SidebarInset>
-        <div className="p-4 sm:p-6 lg:p-8">
-          <div className="md:hidden mb-4">
+        <div className="flex flex-col min-h-screen">
+          <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background px-4 sm:px-6 lg:hidden">
             <SidebarTrigger />
-          </div>
-          {children}
+            <h2 className="text-lg font-semibold">Admin Dashboard</h2>
+          </header>
+          <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-x-hidden">
+            {children}
+          </main>
         </div>
       </SidebarInset>
     </SidebarProvider>

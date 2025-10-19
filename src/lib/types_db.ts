@@ -614,6 +614,8 @@ export interface Database {
       }
       vendors: {
         Row: {
+          agreement_accepted: boolean
+          agreement_accepted_at: string | null
           contact_number: string | null
           created_at: string
           description: string | null
@@ -626,6 +628,8 @@ export interface Database {
           user_id: string
         }
         Insert: {
+          agreement_accepted?: boolean
+          agreement_accepted_at?: string | null
           contact_number?: string | null
           created_at?: string
           description?: string | null
@@ -638,6 +642,8 @@ export interface Database {
           user_id: string
         }
         Update: {
+          agreement_accepted?: boolean
+          agreement_accepted_at?: string | null
           contact_number?: string | null
           created_at?: string
           description?: string | null

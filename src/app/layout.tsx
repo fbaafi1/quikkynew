@@ -8,13 +8,12 @@ import { UserProvider } from '@/contexts/UserContext';
 import { CartProvider } from '@/contexts/CartContext';
 import { WishlistProvider } from '@/contexts/WishlistContext';
 import { NotificationProvider } from '@/contexts/NotificationContext';
-// import { QueryProvider } from '@/components/providers/QueryProvider';
+import { ReactQueryProvider } from '@/providers/ReactQueryProvider';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
   subsets: ['latin'],
 });
-
 
 export default function RootLayout({
   children,
@@ -34,26 +33,24 @@ export default function RootLayout({
         <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
         <meta name="apple-mobile-web-app-title" content="QuiKart" />
         <link rel="manifest" href="/site.webmanifest" />
-        <meta name="theme-color" content="#ffffff" />
-        <meta name="mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-title" content="QuiKart" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
       </head>
       <body className={`${geistSans.variable} font-sans antialiased flex flex-col min-h-screen bg-background`}>
-        <UserProvider>
-          <CartProvider>
-            <WishlistProvider>
-              <NotificationProvider>
-                <Navbar />
-                <main className="flex-grow container mx-auto px-4 py-8">
-                  {children}
-                </main>
-                <Footer />
-              </NotificationProvider>
-            </WishlistProvider>
-          </CartProvider>
-        </UserProvider>
+        <ReactQueryProvider>
+          <UserProvider>
+            <CartProvider>
+              <WishlistProvider>
+                <NotificationProvider>
+                  <Navbar />
+                  <main className="flex-grow container mx-auto px-4 py-8">
+                    {children}
+                  </main>
+                  <Footer />
+                </NotificationProvider>
+              </WishlistProvider>
+            </CartProvider>
+          </UserProvider>
+        </ReactQueryProvider>
       </body>
     </html>
   );

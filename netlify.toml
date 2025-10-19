@@ -1,0 +1,42 @@
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "18"  # Specify Node.js version
+  NEXT_TELEMETRY_DISABLED = "1"  # Disable Next.js telemetry
+  
+  # Server-side environment variables (not exposed to client)
+  TWILIO_ACCOUNT_SID = "$TWILIO_ACCOUNT_SID"
+  TWILIO_AUTH_TOKEN = "$TWILIO_AUTH_TOKEN"
+  TWILIO_PHONE_NUMBER = "$TWILIO_PHONE_NUMBER"
+  GEMINI_API_KEY = "$GEMINI_API_KEY"
+  ADMIN_PHONE_NUMBER = "$ADMIN_PHONE_NUMBER"
+  
+  # Client-side environment variables (prefixed with NEXT_PUBLIC_)
+  NEXT_PUBLIC_SUPABASE_URL = "$NEXT_PUBLIC_SUPABASE_URL"
+  NEXT_PUBLIC_SUPABASE_ANON_KEY = "$NEXT_PUBLIC_SUPABASE_ANON_KEY"
+  NEXT_PUBLIC_ADMIN_PHONE_NUMBER = "$NEXT_PUBLIC_ADMIN_PHONE_NUMBER"
+  
+  # Disable secrets scanning for these keys
+  SECRETS_SCAN_OMIT_KEYS = "ADMIN_PHONE_NUMBER,GEMINI_API_KEY,NEXT_PUBLIC_ADMIN_PHONE_NUMBER,NEXT_PUBLIC_SUPABASE_ANON_KEY,NEXT_PUBLIC_SUPABASE_URL,TWILIO_ACCOUNT_SID,TWILIO_AUTH_TOKEN,TWILIO_PHONE_NUMBER"
+
+# Required for Next.js on Netlify
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# Handle client-side routing
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Security headers
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    X-XSS-Protection = "1; mode=block"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.twilio.com https://*.supabase.co; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://*.twilio.com https://*.supabase.co;"

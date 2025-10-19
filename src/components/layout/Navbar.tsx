@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import Link from 'next/link';
-import { ShoppingCart, User as UserIcon, LogIn, LayoutDashboard, Heart, Menu, Package } from 'lucide-react';
+import { ShoppingCart, User as UserIcon, UserCircle, LayoutDashboard, Heart, Menu, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useUser } from '@/contexts/UserContext';
 import { useCart } from '@/contexts/CartContext';
@@ -56,7 +56,7 @@ export default function Navbar() {
               <SheetHeader className="p-4 border-b">
                 <SheetTitle className="text-left">Menu</SheetTitle>
               </SheetHeader>
-              <div className="overflow-y-auto h-[calc(100vh-65px)] pb-4" onClick={() => setIsMobileMenuOpen(false)}>
+              <div className="overflow-y-auto h-[calc(100vh-65px)] pb-4">
                 <CategoryNavigation isMobile={true} />
                 
                 {/* Mobile-only navigation items */}
@@ -64,7 +64,7 @@ export default function Navbar() {
                   {!currentUser && !loadingUser && (
                     <Button asChild variant="outline" className="w-full mb-3">
                       <Link href="/auth/login" onClick={() => setIsMobileMenuOpen(false)}>
-                        <LogIn className="mr-2 h-4 w-4" /> Login
+                        <UserCircle className="mr-2 h-4 w-4" /> Login
                       </Link>
                     </Button>
                   )}
@@ -78,7 +78,17 @@ export default function Navbar() {
             </SheetContent>
           </Sheet>
           
-          <Link href="/" className="flex items-center gap-2 text-primary-foreground" onClick={() => setIsMobileMenuOpen(false)}>
+          <Link
+            href="/"
+            className="flex items-center gap-2 text-primary-foreground focus:outline-none focus:ring-2 focus:ring-primary-foreground/50 rounded-sm"
+            onClick={(e) => {
+              // Only close mobile menu if it's open, don't prevent default navigation
+              if (isMobileMenuOpen) {
+                setIsMobileMenuOpen(false);
+              }
+              // Let Next.js handle the navigation normally
+            }}
+          >
             <span className="text-xl sm:text-2xl font-bold whitespace-nowrap">QuiKart</span>
           </Link>
         </div>
@@ -209,7 +219,7 @@ export default function Navbar() {
                 href="/auth/login" 
                 className="flex items-center gap-1 focus:outline-none focus:ring-0"
               >
-                <LogIn size={16} className="sm:mr-1" />
+                <UserCircle size={16} className="sm:mr-1" />
                 <span className="hidden xs:inline">Login</span>
               </Link>
             </Button>

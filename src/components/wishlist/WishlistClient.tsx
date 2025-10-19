@@ -1,6 +1,7 @@
 
 "use client";
 
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useWishlist } from '@/contexts/WishlistContext';
@@ -42,9 +43,9 @@ export default function WishlistClient({ initialItems }: { initialItems: Product
     const { addToCart } = useCart();
 
     // Sync server-side state with client-side context on initial load
-    useState(() => {
+    useEffect(() => {
         setWishlistItems(initialItems);
-    });
+    }, [initialItems, setWishlistItems]);
 
     const handleMoveToCart = (product: Product) => {
         addToCart(product);
