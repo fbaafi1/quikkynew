@@ -4,6 +4,8 @@ import { verifyUserRole } from '@/lib/auth';
 import type { BoostPlan } from '@/lib/types';
 import AdminBoostSettingsClient from '@/components/admin/AdminBoostSettingsClient';
 
+export const dynamic = 'force-dynamic';
+
 async function getBoostSettings() {
     const plansPromise = supabase.from('boost_plans').select('*').order('price');
     const settingsPromise = supabase.from('app_settings').select('value').eq('key', 'max_boosted_products').single();

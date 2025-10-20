@@ -4,6 +4,8 @@ import { PlusCircle, Package } from 'lucide-react';
 import { verifyUserRole } from '@/lib/auth';
 import VendorProductsClient from '@/components/vendors/VendorProductsClient';
 
+export const dynamic = 'force-dynamic';
+
 
 export default async function VendorProductsPage() {
     await verifyUserRole('vendor', '/vendor/products');

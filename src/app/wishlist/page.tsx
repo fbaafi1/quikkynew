@@ -1,4 +1,3 @@
-
 import Image from 'next/image';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -8,6 +7,8 @@ import type { Product } from '@/lib/types';
 import { supabase } from '@/lib/supabaseClient';
 import { verifyUserRole, getUserId } from '@/lib/auth';
 import WishlistClient from '@/components/wishlist/WishlistClient';
+
+export const dynamic = 'force-dynamic';
 
 async function getWishlistItems() {
     const userId = await getUserId();

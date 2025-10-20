@@ -3,6 +3,8 @@ import { supabase } from '@/lib/supabaseClient';
 import { verifyUserRole, getUserId } from '@/lib/auth';
 import type { Vendor } from '@/lib/types';
 
+export const dynamic = 'force-dynamic';
+
 
 async function getVendorDetails() {
     const userId = await getUserId();

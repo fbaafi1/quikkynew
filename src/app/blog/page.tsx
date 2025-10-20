@@ -1,4 +1,3 @@
-
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -6,6 +5,8 @@ import type { BlogPost } from '@/lib/types';
 import { supabase } from '@/lib/supabaseClient';
 import { Rss, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
+
+export const dynamic = 'force-dynamic';
 
 async function getPublishedPosts() {
     const { data, error } = await supabase

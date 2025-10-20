@@ -6,6 +6,8 @@ import { verifyUserRole } from '@/lib/auth';
 import AdminAdvertisementsClient from '@/components/admin/AdminAdvertisementsClient';
 import type { Advertisement } from '@/lib/types';
 
+export const dynamic = 'force-dynamic';
+
 
 async function getAdvertisements() {
     const { data, error } = await supabase

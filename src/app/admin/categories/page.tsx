@@ -6,6 +6,8 @@ import { verifyUserRole } from '@/lib/auth';
 import AdminCategoriesClient from '@/components/admin/AdminCategoriesClient';
 import type { Category } from '@/lib/types';
 
+export const dynamic = 'force-dynamic';
+
 async function getCategories() {
     const { data, error } = await supabase.from('categories').select('*').order('name');
     if (error) {

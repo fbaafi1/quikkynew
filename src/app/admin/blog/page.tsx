@@ -6,6 +6,8 @@ import { verifyUserRole } from '@/lib/auth';
 import AdminBlogClient from '@/components/admin/AdminBlogClient';
 import type { BlogPost } from '@/lib/types';
 
+export const dynamic = 'force-dynamic';
+
 async function getBlogPosts() {
     const { data, error } = await supabase
         .from('blog_posts')

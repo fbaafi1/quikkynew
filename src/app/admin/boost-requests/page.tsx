@@ -4,6 +4,8 @@ import { verifyUserRole } from '@/lib/auth';
 import type { BoostRequest } from '@/lib/types';
 import AdminBoostRequestsClient from '@/components/admin/AdminBoostRequestsClient';
 
+export const dynamic = 'force-dynamic';
+
 
 async function getBoostRequests() {
     const supabase = createServerSupabaseClient();

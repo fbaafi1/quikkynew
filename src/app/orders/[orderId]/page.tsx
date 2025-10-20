@@ -1,10 +1,11 @@
-
 import { Suspense } from 'react';
 import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 import OrderDetailClient from '@/components/orders/OrderDetailClient';
 import type { Order, OrderStatus, OrderProductItem, Address as DeliveryAddress, PaymentMethod } from '@/lib/types';
 import { verifyUserRole, getUserId } from '@/lib/auth';
+
+export const dynamic = 'force-dynamic';
 
 interface PageParams {
   orderId: string;

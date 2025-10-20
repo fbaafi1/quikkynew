@@ -4,6 +4,8 @@ import { verifyUserRole } from '@/lib/auth';
 import AdminStatsCard from '@/components/admin/AdminStatsCard';
 import { Card } from '@/components/ui/card';
 
+export const dynamic = 'force-dynamic';
+
 async function getAdminStats() {
     const customerCountPromise = supabase
         .from('user_profiles')
