@@ -6,6 +6,8 @@ import { verifyUserRole } from '@/lib/auth';
 import AdminVendorsClient from '@/components/admin/AdminVendorsClient';
 import type { Vendor } from '@/lib/types';
 
+// Force dynamic rendering to prevent build-time static analysis
+export const dynamic = 'force-dynamic';
 
 async function getVendors() {
     const { data: vendorsData, error: vendorsError } = await supabase

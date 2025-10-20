@@ -3,7 +3,7 @@
   publish = ".next"
 
 [build.environment]
-  NODE_VERSION = "18"  # Specify Node.js version
+  NODE_VERSION = "20"  # Specify Node.js version
   NEXT_TELEMETRY_DISABLED = "1"  # Disable Next.js telemetry
 
   # Server-side environment variables (not exposed to client)

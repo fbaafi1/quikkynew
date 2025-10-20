@@ -2,6 +2,9 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
+// Force Edge runtime to prevent static analysis during build
+export const runtime = 'edge';
+
 export async function DELETE(
   request: Request,
   { params }: { params: { productId: string } }

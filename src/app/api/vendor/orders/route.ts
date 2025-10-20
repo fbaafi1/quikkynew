@@ -1,9 +1,15 @@
 import { NextResponse } from 'next/server';
 import { verifyUserRole, getUserId } from '@/lib/auth';
-import { supabase } from '@/lib/supabaseClient';
+import { supabase, ensureSupabaseConfigured } from '@/lib/supabaseClient';
 import type { OrderStatus } from '@/lib/types';
 
+// Force Edge runtime to prevent static analysis during build
+export const runtime = 'edge';
+
 export async function GET() {
+    // Ensure Supabase is properly configured before making database calls
+    ensureSupabaseConfigured();
+
     try {
         // Verify user is a vendor
         await verifyUserRole('vendor', '/vendor/orders');

@@ -4,6 +4,8 @@ import { verifyUserRole, getUserId } from '@/lib/auth';
 import type { Product, AdminOrderSummary } from '@/lib/types';
 import VendorDashboardClient from '@/components/vendors/VendorDashboardClient';
 
+// Force dynamic rendering to prevent build-time redirect issues
+export const dynamic = 'force-dynamic';
 
 async function getVendorDashboardData() {
     const userId = await getUserId();

@@ -7,6 +7,9 @@ import { supabase } from '@/lib/supabaseClient';
 import { Rss, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
 
+// Force dynamic rendering to prevent build-time static analysis
+export const dynamic = 'force-dynamic';
+
 async function getPublishedPosts() {
     const { data, error } = await supabase
         .from('blog_posts')

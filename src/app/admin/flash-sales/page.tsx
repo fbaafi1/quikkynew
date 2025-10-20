@@ -26,6 +26,9 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
+// Force dynamic rendering to prevent build-time static analysis
+export const dynamic = 'force-dynamic';
+
 const ITEMS_PER_PAGE = 10;
 
 export default function AdminFlashSalesPage() {

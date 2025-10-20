@@ -8,6 +8,9 @@ import { format } from 'date-fns';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 
+// Force dynamic rendering to prevent build-time static analysis
+export const dynamic = 'force-dynamic';
+
 interface PageParams {
   slug: string;
 }

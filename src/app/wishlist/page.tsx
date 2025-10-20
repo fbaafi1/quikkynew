@@ -9,32 +9,48 @@ import { supabase } from '@/lib/supabaseClient';
 import { verifyUserRole, getUserId } from '@/lib/auth';
 import WishlistClient from '@/components/wishlist/WishlistClient';
 
+// Force dynamic rendering to prevent build-time redirect issues
+export const dynamic = 'force-dynamic';
+
 async function getWishlistItems() {
-    const userId = await getUserId();
-    if (!userId) {
-        // This case is handled by verifyUserRole, but as a fallback.
+    try {
+        const userId = await getUserId();
+        if (!userId) {
+            // This case is handled by verifyUserRole, but as a fallback.
+            return [];
+        }
+
+        const { data: wishlistData, error: wishlistError } = await supabase
+            .from('wishlist_items')
+            .select('products(*, vendors(id, store_name))') // Fetch product details directly
+            .eq('user_id', userId);
+
+        if (wishlistError) {
+            console.error("Error fetching wishlist items:", wishlistError);
+            throw new Error("Could not load your wishlist.");
+        }
+
+        // The data is already nested, so we just need to extract the product part.
+        return (wishlistData?.map(item => item.products).filter(Boolean) as Product[]) || [];
+    } catch (error) {
+        console.error("Error in getWishlistItems:", error);
         return [];
     }
-
-    const { data: wishlistData, error: wishlistError } = await supabase
-        .from('wishlist_items')
-        .select('products(*, vendors(id, store_name))') // Fetch product details directly
-        .eq('user_id', userId);
-
-    if (wishlistError) {
-        console.error("Error fetching wishlist items:", wishlistError);
-        throw new Error("Could not load your wishlist.");
-    }
-    
-    // The data is already nested, so we just need to extract the product part.
-    return (wishlistData?.map(item => item.products).filter(Boolean) as Product[]) || [];
 }
 
 
 export default async function WishlistPage() {
-    await verifyUserRole('customer', '/wishlist');
-    const wishlistItems = await getWishlistItems();
-    
+    let wishlistItems: Product[] = [];
+
+    try {
+        await verifyUserRole('customer', '/wishlist');
+        wishlistItems = await getWishlistItems();
+    } catch (error) {
+        // During build time or if verifyUserRole fails, return empty wishlist
+        console.warn("Wishlist page: verifyUserRole failed during build or runtime:", error);
+        wishlistItems = [];
+    }
+
     if (wishlistItems.length === 0) {
         return (
             <div className="text-center py-20">

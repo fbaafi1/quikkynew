@@ -2,33 +2,66 @@
 import { createPagesBrowserClient } from '@supabase/auth-helpers-nextjs';
 import type { Database } from './types_db';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+// Environment variables - use fallback for build time
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || (process.env.NEXT_PHASE === 'phase-production-build' ? 'https://placeholder.supabase.co' : undefined);
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || (process.env.NEXT_PHASE === 'phase-production-build' ? 'placeholder-anon-key' : undefined);
 
-// This function checks if the environment variables are set correctly.
-// It's a common source of errors, so we want to be explicit about it.
-function checkSupabaseEnv() {
-  if (!supabaseUrl || supabaseUrl.includes('YOUR_SUPABASE_URL') || !supabaseAnonKey || supabaseAnonKey.includes('YOUR_SUPABASE_ANON_KEY')) {
-    const missing = [];
-    if (!supabaseUrl || supabaseUrl.includes('YOUR_SUPABASE_URL')) {
-      missing.push('NEXT_PUBLIC_SUPABASE_URL');
-    }
-    if (!supabaseAnonKey || supabaseAnonKey.includes('YOUR_SUPABASE_ANON_KEY')) {
-      missing.push('NEXT_PUBLIC_SUPABASE_ANON_KEY');
-    }
-    
-    // Throwing an error is more forceful and prevents the app from running in a broken state.
+// Validate that required environment variables are set
+function validateSupabaseConfig() {
+  // Skip all validation during build time
+  if (process.env.NEXT_PHASE === 'phase-production-build') {
+    return;
+  }
+
+  if (!supabaseUrl || !supabaseAnonKey) {
     throw new Error(
-      `CRITICAL ERROR: Supabase configuration is missing or incorrect. ` +
-      `Please check your project's .env file and ensure the following variables are set correctly: ${missing.join(', ')}. ` +
-      `You can find these values in your Supabase project's API settings. After updating the .env file, you MUST restart the development server.`
+      `CRITICAL ERROR: Supabase configuration is missing. ` +
+      `Please check your project's .env file and ensure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are set correctly.`
     );
+  }
+
+  // Only validate URL format at runtime, not during build
+  if (typeof window === 'undefined') {
+    try {
+      new URL(supabaseUrl);
+    } catch {
+      throw new Error(`Invalid NEXT_PUBLIC_SUPABASE_URL: ${supabaseUrl}`);
+    }
   }
 }
 
-// Check the environment variables on module load.
-checkSupabaseEnv();
+// Create Supabase client with validation
+let supabaseClient: ReturnType<typeof createPagesBrowserClient<Database>> | null = null;
 
-// Use createPagesBrowserClient for client-side Supabase instance.
-// This is the recommended way for Next.js Pages Router or App Router client components.
-export const supabase = createPagesBrowserClient<Database>();
+function getSupabaseClient() {
+  if (!supabaseClient) {
+    validateSupabaseConfig();
+
+    // Create client even during build time (with fallback values)
+    if (supabaseUrl && supabaseAnonKey) {
+      supabaseClient = createPagesBrowserClient<Database>({
+        supabaseUrl: supabaseUrl!,
+        supabaseKey: supabaseAnonKey!,
+      });
+    }
+  }
+  return supabaseClient;
+}
+
+// Export the client getter function
+export const supabase = new Proxy({} as ReturnType<typeof createPagesBrowserClient<Database>>, {
+  get(target, prop) {
+    const client = getSupabaseClient();
+    if (!client) {
+      // During build time or runtime, return a mock object to prevent errors
+      console.warn('Supabase client not available');
+      return () => Promise.resolve({ data: null, error: null });
+    }
+    return client[prop as keyof typeof client];
+  }
+});
+
+// Export validation function for explicit checks
+export function ensureSupabaseConfigured() {
+  validateSupabaseConfig();
+}

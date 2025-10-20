@@ -49,7 +49,7 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  // Disable TypeScript type checking during build
+  // Disable TypeScript type checking during build to resolve type inference issues
   typescript: {
     ignoreBuildErrors: true,
   },

@@ -7,6 +7,9 @@ import { createServerSupabaseClient } from '@/lib/supabaseServerClient';
 import ProductDetailsClient from '@/components/products/ProductDetailsClient';
 import { Separator } from '@/components/ui/separator';
 
+// Force dynamic rendering to prevent build-time static analysis
+export const dynamic = 'force-dynamic';
+
 interface PageParams {
   id: string;
 }

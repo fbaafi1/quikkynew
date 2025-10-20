@@ -8,6 +8,9 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 
+// Force dynamic rendering to prevent build-time static analysis
+export const dynamic = 'force-dynamic';
+
 interface PageParams {
   id: string;
 }

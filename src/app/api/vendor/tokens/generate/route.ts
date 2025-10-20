@@ -3,6 +3,9 @@ import { createServerSupabaseClient } from '@/lib/supabaseServerClient';
 import { verifyUserRole, getUserId } from '@/lib/auth';
 import QRCode from 'qrcode';
 
+// Force Edge runtime to prevent static analysis during build
+export const runtime = 'edge';
+
 export async function POST(request: NextRequest) {
   try {
     // Verify vendor role

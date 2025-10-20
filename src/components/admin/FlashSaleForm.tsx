@@ -30,11 +30,11 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { RadioGroup, RadioGroupItem } from "../ui/radio-group";
 
 const flashSaleSchema = z.object({
-  product_id: z.string({ required_error: "You must select a product." }),
+  product_id: z.string().min(1, "You must select a product."),
   discount_type: z.enum(['percentage', 'fixed_amount']),
   discount_value: z.coerce.number().positive({ message: "Discount value must be positive." }),
-  start_date: z.date({ required_error: "Start date is required." }),
-  end_date: z.date({ required_error: "End date is required." }),
+  start_date: z.date(),
+  end_date: z.date(),
   stock_cap: z.coerce.number().int().min(0).optional().nullable(),
   is_active: z.boolean().default(true),
 }).refine(data => {
