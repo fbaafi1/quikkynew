@@ -16,7 +16,8 @@ interface OrderDetailPageProps {
 
 // Data fetching function for the server component
 async function getOrderDetails(orderId: string, currentUserId: string, currentUserRole: string) {
-  const supabase = createServerComponentClient({ cookies });
+  const cookieStore = await cookies();
+  const supabase = createServerComponentClient({ cookies: () => cookieStore });
 
   let query = supabase
     .from('orders')
@@ -126,10 +127,12 @@ async function getOrderDetails(orderId: string, currentUserId: string, currentUs
 }
 
 export default async function OrderDetailPage({ params }: OrderDetailPageProps) {
-  const { orderId } = params;
+  // Await params in Next.js 15
+  const { orderId } = await params;
 
   // Get current user session and role for server-side
-  const supabase = createServerComponentClient({ cookies });
+  const cookieStore = await cookies();
+  const supabase = createServerComponentClient({ cookies: () => cookieStore });
   const { data: { session } } = await supabase.auth.getSession();
 
   if (!session?.user?.id) {

@@ -29,12 +29,7 @@ export async function createClient() {
         async remove(name: string, options: any) {
           try {
             const updatedCookies = await cookies();
-            updatedCookies.set(name, '', { 
-              ...options,
-              maxAge: 0,
-              expires: new Date(0),
-              path: '/',
-            });
+            updatedCookies.delete(name);
           } catch (error) {
             console.error('Error removing cookie:', error);
           }

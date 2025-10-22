@@ -6,7 +6,8 @@ export async function POST(
   request: Request,
   { params }: { params: { id: string } }
 ) {
-  const supabase = createRouteHandlerClient({ cookies });
+  const cookieStore = await cookies();
+  const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
   // Handle both prefixed and non-prefixed notification IDs
   const notificationId = params.id.startsWith('admin_msg_') 
     ? params.id.replace('admin_msg_', '')

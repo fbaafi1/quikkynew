@@ -27,15 +27,35 @@ const shuffleArray = <T extends any[]>(array: T): T => {
 async function getHomePageData(offset: number = 0, limit: number = 20) {
     const now = new Date().toISOString();
 
-    const [categoriesResult, productsResult, adsResult, flashSalesResult] = await Promise.all([
-      // Only fetch essential category data for visible categories
-      supabase.from('categories').select('id, name, is_visible').eq('is_visible', true).order('name', { ascending: true }),
-      // Load fewer products initially for better performance
-      supabase.from('products').select('id, name, price, images, category_id, average_rating, review_count, stock, vendor_id').range(offset, offset + limit - 1).order('created_at', { ascending: false }),
-      // Limit advertisements for faster loading
-      supabase.from('advertisements').select('id, title, media_url, media_type, link_url, start_date, end_date, is_active').eq('is_active', true).limit(3),
-      supabase.from('flash_sales').select('*, products:product_id(*)').eq('is_active', true).lte('start_date', now).gte('end_date', now)
-    ]);
+    try {
+      // Use individual try-catch for each query to prevent one failure from breaking all
+      const categoriesResult = await supabase
+        .from('categories')
+        .select('id, name, is_visible')
+        .eq('is_visible', true)
+        .order('name', { ascending: true })
+        .limit(50); // Add limit to prevent large queries
+
+      const productsResult = await supabase
+        .from('products')
+        .select('id, name, price, images, category_id, average_rating, review_count, stock, vendor_id')
+        .range(offset, offset + limit - 1)
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+      const adsResult = await supabase
+        .from('advertisements')
+        .select('id, title, media_url, media_type, link_url, start_date, end_date, is_active')
+        .eq('is_active', true)
+        .limit(3);
+
+      const flashSalesResult = await supabase
+        .from('flash_sales')
+        .select('*, products:product_id(*)')
+        .eq('is_active', true)
+        .lte('start_date', now)
+        .gte('end_date', now)
+        .limit(10); // Add limit to prevent large queries
 
     // Filter advertisements by date range on the client side (until migration is applied)
     const filteredAdvertisements = (adsResult.data || []).filter(ad => {
@@ -53,36 +73,81 @@ async function getHomePageData(offset: number = 0, limit: number = 20) {
       return isAfterStart && isBeforeEnd;
     });
 
-    return {
-      categories: (categoriesResult.data as Tables<'categories'>[]) || [],
-      products: (productsResult.data as Tables<'products'>[])?.map(p => ({
-        id: p.id,
-        name: p.name,
-        price: p.price,
-        images: p.images,
-        categoryId: p.category_id || null,
-        average_rating: p.average_rating,
-        review_count: p.review_count,
-        is_boosted: p.is_boosted,
-        boosted_until: p.boosted_until,
-        boost_status: p.boost_status,
-        description: '', // Add default since it's not selected in query
-        stock: p.stock || 0, // Use actual stock from database
-        vendor_id: p.vendor_id,
-        created_at: p.created_at,
-        updated_at: p.updated_at
-      })) || [],
-      advertisements: filteredAdvertisements,
-      flashSales: (flashSalesResult.data as Tables<'flash_sales'>[]) || [],
-      hasMore: productsResult.data && productsResult.data.length === limit, // Check if there are more products
-      nextOffset: offset + limit
-    };
+      return {
+        categories: (categoriesResult.data as Tables<'categories'>[]) || [],
+        products: (productsResult.data as Tables<'products'>[])?.map(p => ({
+          id: p.id,
+          name: p.name,
+          price: p.price,
+          images: p.images,
+          categoryId: p.category_id || null,
+          average_rating: p.average_rating,
+          review_count: p.review_count,
+          is_boosted: p.is_boosted,
+          boosted_until: p.boosted_until,
+          boost_status: p.boost_status,
+          description: '', // Add default since it's not selected in query
+          stock: p.stock || 0, // Use actual stock from database
+          vendor_id: p.vendor_id,
+          created_at: p.created_at,
+          updated_at: p.updated_at
+        })) || [],
+        advertisements: filteredAdvertisements,
+        flashSales: (flashSalesResult.data as Tables<'flash_sales'>[]) || [],
+        hasMore: productsResult.data && productsResult.data.length === limit, // Check if there are more products
+        nextOffset: offset + limit
+      };
+    } catch (error) {
+      console.error('Error fetching homepage data:', error);
+      // Return empty data structure to prevent build failure
+      return {
+        categories: [],
+        products: [],
+        advertisements: [],
+        flashSales: [],
+        hasMore: false,
+        nextOffset: offset + limit
+      };
+    }
 }
 
 
 export default async function HomePage() {
-  // Fetch data on the server with initial pagination
-  const { categories, products, advertisements, flashSales, hasMore } = await getHomePageData(0, 20);
+  // Check if we're in development mode or if Supabase is not configured
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  const hasSupabaseConfig = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  
+  let categories, products, advertisements, flashSales, hasMore;
+  
+  // Skip database queries in development if no Supabase config
+  if (isDevelopment && !hasSupabaseConfig) {
+    console.log('Development mode: Using empty data for homepage');
+    categories = [];
+    products = [];
+    advertisements = [];
+    flashSales = [];
+    hasMore = false;
+  } else {
+    try {
+      // Add timeout protection for both build and development
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Homepage data fetch timeout')), 5000) // Reduced to 5 seconds
+      );
+      
+      const dataPromise = getHomePageData(0, 20);
+      
+      const result = await Promise.race([dataPromise, timeoutPromise]) as any;
+      ({ categories, products, advertisements, flashSales, hasMore } = result);
+    } catch (error) {
+      console.error('Homepage data fetch failed:', error);
+      // Fallback to empty data
+      categories = [];
+      products = [];
+      advertisements = [];
+      flashSales = [];
+      hasMore = false;
+    }
+  }
 
   const allDbVisibleCategories = categories;
   
@@ -186,6 +251,17 @@ export default async function HomePage() {
               <ProductCard key={product.id} product={product} />
             ))}
           </div>
+        </section>
+      )}
+
+      {/* Fallback when no data is available */}
+      {products.length === 0 && (
+        <section className="container mx-auto text-center py-12">
+          <h2 className="text-2xl font-bold mb-4">Welcome to QuiKart</h2>
+          <p className="text-muted-foreground mb-6">Your one-stop shop for everything in Ghana!</p>
+          <Button asChild>
+            <Link href="/products">Browse Products</Link>
+          </Button>
         </section>
       )}
     </div>

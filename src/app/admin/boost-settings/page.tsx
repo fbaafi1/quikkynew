@@ -4,6 +4,9 @@ import { verifyUserRole } from '@/lib/auth';
 import type { BoostPlan } from '@/lib/types';
 import AdminBoostSettingsClient from '@/components/admin/AdminBoostSettingsClient';
 
+// Force dynamic rendering to prevent build-time static analysis
+export const dynamic = 'force-dynamic';
+
 async function getBoostSettings() {
     const plansPromise = supabase.from('boost_plans').select('*').order('price');
     const settingsPromise = supabase.from('app_settings').select('value').eq('key', 'max_boosted_products').single();
@@ -18,7 +21,7 @@ async function getBoostSettings() {
         throw new Error(`Could not fetch app settings: ${settingsResult.error.message}`);
     }
     if(settingsResult.data) {
-        maxBoosts = (settingsResult.data.value as any)?.limit || 10;
+        maxBoosts = (settingsResult.data.value as { limit?: number })?.limit || 10;
     }
     
     return {

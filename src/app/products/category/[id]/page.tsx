@@ -80,8 +80,9 @@ async function getCategoryData(categoryId: string) {
 }
 
 export default async function CategoryPage({ params }: { params: PageParams }) {
-  const { id: categoryId } = params;
-  
+  // Await params in Next.js 15
+  const { id: categoryId } = await params;
+
   try {
     const { category, products } = await getCategoryData(categoryId);
 

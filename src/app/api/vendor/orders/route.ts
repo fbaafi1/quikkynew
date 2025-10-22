@@ -4,7 +4,7 @@ import { supabase, ensureSupabaseConfigured } from '@/lib/supabaseClient';
 import type { OrderStatus } from '@/lib/types';
 
 // Force Edge runtime to prevent static analysis during build
-export const runtime = 'edge';
+// Removed edge runtime to fix cookie issues
 
 export async function GET() {
     // Ensure Supabase is properly configured before making database calls

@@ -4,7 +4,7 @@ import { verifyUserRole, getUserId } from '@/lib/auth';
 import QRCode from 'qrcode';
 
 // Force Edge runtime to prevent static analysis during build
-export const runtime = 'edge';
+// Removed edge runtime to fix cookie issues
 
 export async function POST(request: NextRequest) {
   try {

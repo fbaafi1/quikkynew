@@ -52,7 +52,8 @@ async function getVendorData(vendorId: string) {
 }
 
 export default async function VendorStorefrontPage({ params }: { params: PageParams }) {
-  const { id: vendorId } = params;
+  // Await params in Next.js 15
+  const { id: vendorId } = await params;
 
   try {
     const { vendor, products } = await getVendorData(vendorId);

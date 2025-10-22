@@ -3,6 +3,9 @@ import { supabase } from '@/lib/supabaseClient';
 import { verifyUserRole, getUserId } from '@/lib/auth';
 import type { Vendor } from '@/lib/types';
 
+// Force dynamic rendering to prevent build-time static analysis
+export const dynamic = 'force-dynamic';
+
 
 async function getVendorDetails() {
     const userId = await getUserId();
@@ -24,7 +27,7 @@ async function getVendorDetails() {
 
 
 export default async function VendorSettingsPage() {
-  await verifyUserRole('vendor', '/vendor/settings');
+  // Note: Role verification is handled by the vendor layout, so we don't need it here
   const vendor = await getVendorDetails();
 
   return (

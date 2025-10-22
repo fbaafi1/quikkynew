@@ -37,8 +37,9 @@ interface ProductWithVendor extends Omit<Product, 'vendors' | 'vendor' | 'catego
 }
 
 export default async function ProductDetailsPage({ params }: { params: PageParams }) {
-  const productId = params.id;
-  
+  // Await params in Next.js 15
+  const { id: productId } = await params;
+
   if (!productId) {
     return notFound();
   }

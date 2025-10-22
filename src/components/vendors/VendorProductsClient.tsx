@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -28,6 +28,8 @@ import { BoostProductDialog } from './BoostProductDialog';
 import { useProducts, useCategories, useBoostPlans } from '@/lib/queries';
 import { TableSkeleton, CardSkeleton } from '@/components/ui/loading-skeleton';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { useUser } from '@/contexts/UserContext';
+import { supabase } from '@/lib/supabaseClient';
 
 interface VendorProductsClientProps {
   // Remove props since we'll fetch data with React Query
@@ -35,6 +37,8 @@ interface VendorProductsClientProps {
 
 export default function VendorProductsClient({}: VendorProductsClientProps) {
   const router = useRouter();
+  const { currentUser } = useUser();
+  const [vendorId, setVendorId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [stockFilter, setStockFilter] = useState<string>('all');
@@ -44,8 +48,36 @@ export default function VendorProductsClient({}: VendorProductsClientProps) {
   const [boostDialogOpen, setBoostDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<{id: string, name: string} | null>(null);
 
-  // Use React Query for data fetching
-  const { data: products = [], isLoading: productsLoading, error: productsError } = useProducts();
+  // Fetch vendor ID for the current user
+  useEffect(() => {
+    const fetchVendorId = async () => {
+      if (!currentUser?.id) return;
+      
+      try {
+        const { data: vendor, error } = await supabase
+          .from('vendors')
+          .select('id')
+          .eq('user_id', currentUser.id)
+          .single();
+        
+        if (error) {
+          console.error('Error fetching vendor ID:', error);
+          return;
+        }
+        
+        if (vendor) {
+          setVendorId(vendor.id);
+        }
+      } catch (error) {
+        console.error('Error fetching vendor ID:', error);
+      }
+    };
+
+    fetchVendorId();
+  }, [currentUser?.id]);
+
+  // Use React Query for data fetching - ONLY fetch products for this vendor
+  const { data: products = [], isLoading: productsLoading, error: productsError } = useProducts(vendorId || undefined);
   const { data: categories = [], isLoading: categoriesLoading } = useCategories();
   const { data: boostPlans = [], isLoading: boostPlansLoading } = useBoostPlans();
 
@@ -59,6 +91,16 @@ export default function VendorProductsClient({}: VendorProductsClientProps) {
     setSelectedProduct({ id: product.id, name: product.name });
     setBoostDialogOpen(true);
   };
+
+  // Show loading if vendor ID is not yet fetched
+  if (!vendorId && currentUser) {
+    return (
+      <div className="space-y-4">
+        <CardSkeleton />
+        <TableSkeleton />
+      </div>
+    );
+  }
 
   // Filter products based on search and filters
   const filteredProducts = (products || []).filter(product => {

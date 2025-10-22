@@ -78,7 +78,7 @@ async function getVendorDashboardData() {
 
 
 export default async function VendorDashboardPage() {
-    await verifyUserRole('vendor', '/vendor/dashboard');
+    // Note: Role verification is handled by the vendor layout, so we don't need it here
     const { vendorDetails, stats, lowStockProducts, recentOrders } = await getVendorDashboardData();
 
     return (

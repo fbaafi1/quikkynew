@@ -3,10 +3,11 @@ import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
 // Force Edge runtime to prevent static analysis during build
-export const runtime = 'edge';
+// Removed edge runtime to fix cookie issues
 
-export async function GET() {
-  const supabase = createRouteHandlerClient({ cookies });
+export async function GET(request: Request) {
+  const cookieStore = await cookies();
+  const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
 
   try {
     // Get the current user

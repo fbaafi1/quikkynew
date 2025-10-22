@@ -15,9 +15,9 @@ export async function createServerClient() {
         async set(name: string, value: string, options: any) {
           try {
             const updatedCookies = await cookies();
-            updatedCookies.set({ 
-              name, 
-              value, 
+            updatedCookies.set({
+              name,
+              value,
               ...options,
               httpOnly: options?.httpOnly ?? true,
               secure: process.env.NODE_ENV === 'production',
@@ -31,13 +31,7 @@ export async function createServerClient() {
         async remove(name: string, options: any) {
           try {
             const updatedCookies = await cookies();
-            updatedCookies.set({ 
-              name, 
-              value: '', 
-              ...options,
-              maxAge: 0, // Immediately expire the cookie
-              expires: new Date(0), // Set to past date
-            });
+            updatedCookies.delete(name);
           } catch (error) {
             console.error('Error removing cookie:', error);
           }

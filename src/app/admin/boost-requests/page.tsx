@@ -4,6 +4,9 @@ import { verifyUserRole } from '@/lib/auth';
 import type { BoostRequest } from '@/lib/types';
 import AdminBoostRequestsClient from '@/components/admin/AdminBoostRequestsClient';
 
+// Force dynamic rendering to prevent build-time static analysis
+export const dynamic = 'force-dynamic';
+
 
 async function getBoostRequests() {
     const supabase = createServerSupabaseClient();

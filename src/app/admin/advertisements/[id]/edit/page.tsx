@@ -30,7 +30,8 @@ async function getAdvertisement(id: string) {
 
 
 export default async function EditAdvertisementPage({ params }: EditAdvertisementPageProps) {
-  const { id } = params;
+  // Await params in Next.js 15
+  const { id } = await params;
   const advertisement = await getAdvertisement(id);
 
   if (!advertisement) {
