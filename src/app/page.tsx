@@ -4,7 +4,7 @@ import ProductCard from '@/components/products/ProductCard';
 import type { Product, Category, Advertisement, FlashSale } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Image as ImageIconLucide, Rocket, Store, Tag } from 'lucide-react';
-import { supabase } from '@/lib/supabaseClient';
+import { createClient } from '@/lib/supabase/server';
 import NextImage from 'next/image';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -12,6 +12,9 @@ import FlashSaleCard from '@/components/products/FlashSaleCard';
 import Link from 'next/link';
 import AdvertisementCarousel from '@/components/AdvertisementCarousel';
 import type { Tables } from '@/lib/types_db';
+
+// Force dynamic rendering since we use server-side Supabase client
+export const dynamic = 'force-dynamic';
 
 // Helper function to shuffle an array
 const shuffleArray = <T extends any[]>(array: T): T => {
@@ -26,6 +29,7 @@ const shuffleArray = <T extends any[]>(array: T): T => {
 // Data fetching function for the server component with pagination support
 async function getHomePageData(offset: number = 0, limit: number = 20) {
     const now = new Date().toISOString();
+    const supabase = await createClient();
 
     try {
       // Use individual try-catch for each query to prevent one failure from breaking all
