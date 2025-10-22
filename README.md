@@ -170,8 +170,8 @@ cd quikart
 npm install
 
 # Set up environment variables
-cp .env.example .env.local
-# Configure your Supabase credentials
+# Create .env.local file with your Supabase credentials
+# See Environment Configuration section below
 
 # Run development server
 npm run dev
@@ -179,12 +179,27 @@ npm run dev
 
 ### **Environment Configuration**
 
+**Required Environment Variables:**
+
+Create a `.env.local` file in the root directory with the following variables:
+
 ```env
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+# Supabase Configuration (Required)
+NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key_here
+
+# Optional: Admin Configuration
 NEXT_PUBLIC_ADMIN_PHONE_NUMBER=your_admin_contact
 ```
+
+**How to get your Supabase credentials:**
+
+1. Go to [supabase.com](https://supabase.com) and create a new project
+2. In your project dashboard, go to Settings → API
+3. Copy the "Project URL" for `NEXT_PUBLIC_SUPABASE_URL`
+4. Copy the "anon public" key for `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+
+**Note:** Without these environment variables, the application will show warnings but will still run in development mode with mock data.
 
 ---
 
