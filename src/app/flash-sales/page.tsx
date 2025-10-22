@@ -1,8 +1,9 @@
-
 import type { FlashSale } from '@/lib/types';
 import { supabase } from '@/lib/supabaseClient';
 import { Rocket } from 'lucide-react';
 import FlashSaleCard from '@/components/products/FlashSaleCard';
+
+export const dynamic = 'force-dynamic';
 
 async function getActiveFlashSales() {
     const now = new Date().toISOString();
