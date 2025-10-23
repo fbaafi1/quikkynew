@@ -13,11 +13,12 @@ function validateSupabaseConfig() {
     return;
   }
 
-  // Only validate URL format at runtime, not during build
+  // Validate URL format (only on server-side for security)
   if (typeof window === 'undefined' && supabaseUrl) {
     try {
       new URL(supabaseUrl);
-    } catch {
+    } catch (error) {
+      console.error(`Invalid NEXT_PUBLIC_SUPABASE_URL: ${supabaseUrl}`);
       throw new Error(`Invalid NEXT_PUBLIC_SUPABASE_URL: ${supabaseUrl}`);
     }
   }
@@ -32,9 +33,22 @@ function getSupabaseClient() {
 
     // Only create client if environment variables are available
     if (supabaseUrl && supabaseAnonKey) {
-      supabaseClient = createPagesBrowserClient<Database>({
-        supabaseUrl: supabaseUrl,
-        supabaseKey: supabaseAnonKey,
+      try {
+        console.log('Creating client-side Supabase client...');
+        supabaseClient = createPagesBrowserClient<Database>({
+          supabaseUrl: supabaseUrl,
+          supabaseKey: supabaseAnonKey,
+        });
+        console.log('Client-side Supabase client created successfully');
+      } catch (error) {
+        console.error('Failed to create client-side Supabase client:', error);
+        supabaseClient = null;
+      }
+    } else {
+      console.warn('Client-side Supabase client not created - missing environment variables:', {
+        hasUrl: !!supabaseUrl,
+        hasKey: !!supabaseAnonKey,
+        url: supabaseUrl?.substring(0, 20) + '...',
       });
     }
   }
