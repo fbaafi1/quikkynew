@@ -29,9 +29,23 @@ const shuffleArray = <T extends any[]>(array: T): T => {
 // Data fetching function for the server component with pagination support
 async function getHomePageData(offset: number = 0, limit: number = 20) {
     const now = new Date().toISOString();
-    const supabase = await createClient();
 
     try {
+      // Check if Supabase environment variables are available
+      if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+        console.log('Supabase configuration missing, returning empty data');
+        return {
+          categories: [],
+          products: [],
+          advertisements: [],
+          flashSales: [],
+          hasMore: false,
+          nextOffset: offset + limit
+        };
+      }
+
+      const supabase = await createClient();
+
       // Use individual try-catch for each query to prevent one failure from breaking all
       const categoriesResult = await supabase
         .from('categories')
@@ -119,9 +133,13 @@ async function getHomePageData(offset: number = 0, limit: number = 20) {
 export default async function HomePage() {
   // Check if we're in development mode or if Supabase is not configured
   const isDevelopment = process.env.NODE_ENV === 'development';
-  const hasSupabaseConfig = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const hasSupabaseConfig = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
   
-  let categories, products, advertisements, flashSales, hasMore;
+  let categories: Category[] = [];
+  let products: Product[] = [];
+  let advertisements: Advertisement[] = [];
+  let flashSales: FlashSale[] = [];
+  let hasMore = false;
   
   // Skip database queries in development if no Supabase config
   if (isDevelopment && !hasSupabaseConfig) {
@@ -133,15 +151,14 @@ export default async function HomePage() {
     hasMore = false;
   } else {
     try {
-      // Add timeout protection for both build and development
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Homepage data fetch timeout')), 5000) // Reduced to 5 seconds
-      );
-      
-      const dataPromise = getHomePageData(0, 20);
-      
-      const result = await Promise.race([dataPromise, timeoutPromise]) as any;
-      ({ categories, products, advertisements, flashSales, hasMore } = result);
+      console.log('Starting homepage data fetch...');
+      const result = await getHomePageData(0, 20);
+      categories = result.categories || [];
+      products = result.products || [];
+      advertisements = result.advertisements || [];
+      flashSales = result.flashSales || [];
+      hasMore = Boolean(result.hasMore);
+      console.log(`Homepage data fetched successfully: ${products.length} products, ${categories.length} categories`);
     } catch (error) {
       console.error('Homepage data fetch failed:', error);
       // Fallback to empty data
